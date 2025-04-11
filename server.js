@@ -35,6 +35,8 @@ const snackRoutes = require('./routes/snack.routes');
 const categoryRoutes = require('./routes/category.routes');
 const orderRoutes = require('./routes/order.routes');
 const cartRoutes = require('./routes/cart.routes');
+const reviewRoutes = require('./routes/review.routes');
+const searchRoutes = require('./routes/search.routes');
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -43,6 +45,8 @@ app.use('/api/snacks', snackRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/carts', cartRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/search', searchRoutes);
 
 // 404 handler - phải đặt sau tất cả các routes khác
 app.use((req, res) => {
