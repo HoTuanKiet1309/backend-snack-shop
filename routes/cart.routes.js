@@ -1,7 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const { getCart, addToCart, updateCartItem, removeFromCart } = require('../controllers/cartController');
 const auth = require('../middleware/auth');
+const { 
+  getCart, 
+  addToCart, 
+  updateCartItem, 
+  removeFromCart, 
+  clearCart,
+  applyCoupon
+} = require('../controllers/cartController');
 
 /**
  * @swagger
@@ -15,12 +22,10 @@ const auth = require('../middleware/auth');
  *       properties:
  *         snackId:
  *           type: string
- *           description: ID của snack
- *           example: "507f1f77bcf86cd799439011"
+ *           description: ID của sản phẩm
  *         quantity:
  *           type: number
  *           description: Số lượng
- *           example: 2
  *     Cart:
  *       type: object
  *       properties:
@@ -28,10 +33,15 @@ const auth = require('../middleware/auth');
  *           type: array
  *           items:
  *             $ref: '#/components/schemas/CartItem'
- *         totalPrice:
+ *         total:
  *           type: number
- *           description: Tổng giá trị giỏ hàng
- *           example: 59.98
+ *           description: Tổng tiền
+ *         discount:
+ *           type: number
+ *           description: Giảm giá
+ *         finalTotal:
+ *           type: number
+ *           description: Tổng tiền sau giảm giá
  */
 
 /**
@@ -51,12 +61,7 @@ const auth = require('../middleware/auth');
  *               $ref: '#/components/schemas/Cart'
  *       401:
  *         description: Chưa đăng nhập
- */
-router.get('/', auth, getCart);
-
-/**
- * @swagger
- * /api/cart/add:
+ * 
  *   post:
  *     summary: Thêm sản phẩm vào giỏ hàng
  *     tags: [Cart]
@@ -67,36 +72,86 @@ router.get('/', auth, getCart);
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - snackId
- *               - quantity
- *             properties:
- *               snackId:
- *                 type: string
- *                 example: "507f1f77bcf86cd799439011"
- *               quantity:
- *                 type: number
- *                 example: 1
+ *             $ref: '#/components/schemas/CartItem'
  *     responses:
  *       200:
- *         description: Thêm vào giỏ hàng thành công
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Cart'
+ *         description: Thêm thành công
+ *       401:
+ *         description: Chưa đăng nhập
+ *       404:
+ *         description: Không tìm thấy sản phẩm
+ * 
+ *   put:
+ *     summary: Cập nhật số lượng sản phẩm
+ *     tags: [Cart]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: snackId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID của sản phẩm
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               quantity:
+ *                 type: number
+ *                 description: Số lượng mới
+ *     responses:
+ *       200:
+ *         description: Cập nhật thành công
+ *       401:
+ *         description: Chưa đăng nhập
+ *       404:
+ *         description: Không tìm thấy sản phẩm
+ * 
+ *   delete:
+ *     summary: Xóa sản phẩm khỏi giỏ hàng
+ *     tags: [Cart]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: snackId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID của sản phẩm
+ *     responses:
+ *       200:
+ *         description: Xóa thành công
  *       401:
  *         description: Chưa đăng nhập
  *       404:
  *         description: Không tìm thấy sản phẩm
  */
-router.post('/add', auth, addToCart);
 
 /**
  * @swagger
- * /api/cart/update:
- *   put:
- *     summary: Cập nhật số lượng sản phẩm trong giỏ hàng
+ * /api/cart/clear:
+ *   delete:
+ *     summary: Xóa toàn bộ giỏ hàng
+ *     tags: [Cart]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Xóa thành công
+ *       401:
+ *         description: Chưa đăng nhập
+ */
+
+/**
+ * @swagger
+ * /api/cart/apply-coupon:
+ *   post:
+ *     summary: Áp dụng mã giảm giá
  *     tags: [Cart]
  *     security:
  *       - bearerAuth: []
@@ -106,49 +161,25 @@ router.post('/add', auth, addToCart);
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - snackId
- *               - quantity
  *             properties:
- *               snackId:
+ *               code:
  *                 type: string
- *                 example: "507f1f77bcf86cd799439011"
- *               quantity:
- *                 type: number
- *                 example: 2
+ *                 description: Mã giảm giá
  *     responses:
  *       200:
- *         description: Cập nhật giỏ hàng thành công
+ *         description: Áp dụng thành công
  *       401:
  *         description: Chưa đăng nhập
  *       404:
- *         description: Không tìm thấy sản phẩm trong giỏ hàng
+ *         description: Mã giảm giá không hợp lệ
  */
-router.put('/update', auth, updateCartItem);
 
-/**
- * @swagger
- * /api/cart/remove/{snackId}:
- *   delete:
- *     summary: Xóa sản phẩm khỏi giỏ hàng
- *     tags: [Cart]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: snackId
- *         schema:
- *           type: string
- *         required: true
- *         description: ID của snack cần xóa
- *     responses:
- *       200:
- *         description: Xóa sản phẩm thành công
- *       401:
- *         description: Chưa đăng nhập
- *       404:
- *         description: Không tìm thấy sản phẩm trong giỏ hàng
- */
-router.delete('/remove/:snackId', auth, removeFromCart);
+// Cart routes
+router.get('/', auth, getCart);
+router.post('/', auth, addToCart);
+router.put('/:snackId', auth, updateCartItem);
+router.delete('/:snackId', auth, removeFromCart);
+router.delete('/clear', auth, clearCart);
+router.post('/apply-coupon', auth, applyCoupon);
 
 module.exports = router; 
