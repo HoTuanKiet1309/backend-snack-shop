@@ -26,9 +26,9 @@ const snackSchema = new mongoose.Schema({
     min: 0
   },
   categoryId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Category',
-    required: true
+    type: String,
+    required: true,
+    enum: ['banh', 'keo', 'do_kho', 'mut', 'hat']
   },
   images: [{
     type: String

@@ -20,6 +20,7 @@ const { body } = require('express-validator');
  *               - password
  *               - firstName
  *               - lastName
+ *               - phoneNumber
  *             properties:
  *               email:
  *                 type: string
@@ -37,6 +38,10 @@ const { body } = require('express-validator');
  *                 type: string
  *                 description: Họ
  *                 example: "Doe"
+ *               phoneNumber:
+ *                 type: string
+ *                 description: Số điện thoại
+ *                 example: "0123456789"
  *     responses:
  *       201:
  *         description: Đăng ký thành công

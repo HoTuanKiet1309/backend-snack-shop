@@ -4,7 +4,13 @@ const bcrypt = require('bcryptjs');
 
 exports.register = async (req, res) => {
   try {
-    const { email, password, firstName, lastName } = req.body;
+    const { email, password, firstName, lastName, phoneNumber } = req.body;
+    
+    // Validate required fields
+    if (!email || !password || !firstName || !lastName || !phoneNumber) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
     let user = await User.findOne({ email });
     
     if (user) {
@@ -15,7 +21,8 @@ exports.register = async (req, res) => {
       email,
       password,
       firstName,
-      lastName
+      lastName,
+      mobileNumber: phoneNumber
     });
 
     await user.save();
@@ -33,7 +40,8 @@ exports.register = async (req, res) => {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        role: user.role
+        role: user.role,
+        phoneNumber: user.mobileNumber
       }
     });
   } catch (error) {
