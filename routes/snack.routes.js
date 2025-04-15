@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAllSnacks, getSnackById, createSnack, updateSnack, deleteSnack } = require('../controllers/snackController');
+const { getAllSnacks, getSnackById, createSnack, updateSnack, deleteSnack, getSnacksByCategory } = require('../controllers/snackController');
 const auth = require('../middleware/auth');
 
 /**
@@ -35,7 +35,7 @@ const auth = require('../middleware/auth');
  *         categoryId:
  *           type: string
  *           description: ID của danh mục
- *           example: "categoryId123"
+ *           example: "banh"
  *         discount:
  *           type: number
  *           description: Phần trăm giảm giá
@@ -57,26 +57,34 @@ const auth = require('../middleware/auth');
  *               type: array
  *               items:
  *                 $ref: '#/components/schemas/Snack'
- *   
- *   post:
- *     summary: Tạo snack mới
- *     tags: [Snacks]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/Snack'
- *     responses:
- *       201:
- *         description: Tạo snack thành công
- *       401:
- *         description: Không có quyền truy cập
  */
 router.get('/', getAllSnacks);
-router.post('/', auth, createSnack);
+
+/**
+ * @swagger
+ * /api/snacks/category/{categoryId}:
+ *   get:
+ *     summary: Lấy danh sách snacks theo category
+ *     tags: [Snacks]
+ *     parameters:
+ *       - in: path
+ *         name: categoryId
+ *         schema:
+ *           type: string
+ *           enum: ['banh', 'keo', 'do_kho', 'mut', 'hat']
+ *         required: true
+ *         description: ID của category (banh, keo, do_kho, mut, hat)
+ *     responses:
+ *       200:
+ *         description: Danh sách snacks của category
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Snack'
+ */
+router.get('/category/:categoryId', getSnacksByCategory);
 
 /**
  * @swagger
@@ -100,7 +108,34 @@ router.post('/', auth, createSnack);
  *               $ref: '#/components/schemas/Snack'
  *       404:
  *         description: Không tìm thấy snack
- *
+ */
+router.get('/:id', getSnackById);
+
+/**
+ * @swagger
+ * /api/snacks:
+ *   post:
+ *     summary: Tạo snack mới
+ *     tags: [Snacks]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Snack'
+ *     responses:
+ *       201:
+ *         description: Tạo snack thành công
+ *       401:
+ *         description: Không có quyền truy cập
+ */
+router.post('/', auth, createSnack);
+
+/**
+ * @swagger
+ * /api/snacks/{id}:
  *   put:
  *     summary: Cập nhật thông tin snack
  *     tags: [Snacks]
@@ -126,7 +161,12 @@ router.post('/', auth, createSnack);
  *         description: Không có quyền truy cập
  *       404:
  *         description: Không tìm thấy snack
- *
+ */
+router.put('/:id', auth, updateSnack);
+
+/**
+ * @swagger
+ * /api/snacks/{id}:
  *   delete:
  *     summary: Xóa snack
  *     tags: [Snacks]
@@ -147,8 +187,6 @@ router.post('/', auth, createSnack);
  *       404:
  *         description: Không tìm thấy snack
  */
-router.get('/:id', getSnackById);
-router.put('/:id', auth, updateSnack);
 router.delete('/:id', auth, deleteSnack);
 
 module.exports = router; 
