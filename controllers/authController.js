@@ -22,7 +22,7 @@ exports.register = async (req, res) => {
       password,
       firstName,
       lastName,
-      mobileNumber: phoneNumber
+      phone: phoneNumber
     });
 
     await user.save();
@@ -41,7 +41,7 @@ exports.register = async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
-        phoneNumber: user.mobileNumber
+        phoneNumber: user.phone
       }
     });
   } catch (error) {
@@ -80,7 +80,8 @@ exports.login = async (req, res) => {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        role: user.role
+        role: user.role,
+        phoneNumber: user.phone
       }
     });
   } catch (error) {
