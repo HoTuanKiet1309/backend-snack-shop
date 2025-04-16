@@ -69,6 +69,7 @@ router.post('/register', register);
  *             required:
  *               - email
  *               - password
+ *               - source
  *             properties:
  *               email:
  *                 type: string
@@ -78,34 +79,21 @@ router.post('/register', register);
  *                 type: string
  *                 description: Mật khẩu
  *                 example: "123456"
+ *               source:
+ *                 type: string
+ *                 description: Nguồn đăng nhập (admin hoặc user)
+ *                 example: "admin"
  *     responses:
  *       200:
  *         description: Đăng nhập thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 token:
- *                   type: string
- *                   description: JWT token
- *                 user:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: string
- *                     email:
- *                       type: string
- *                     firstName:
- *                       type: string
- *                     lastName:
- *                       type: string
  *       401:
  *         description: Sai email hoặc mật khẩu
+ *       403:
+ *         description: Không có quyền truy cập
  */
 router.post('/login', async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, source } = req.body;
 
         // Kiểm tra user có tồn tại không
         const user = await User.findOne({ email });
@@ -113,8 +101,8 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'Invalid email or password' });
         }
 
-        // Kiểm tra role - chỉ cho phép admin đăng nhập
-        if (user.role !== 'admin') {
+        // Kiểm tra quyền truy cập dựa trên source
+        if (source === 'admin' && user.role !== 'admin') {
             return res.status(403).json({ message: 'Access denied. Admin only.' });
         }
 
