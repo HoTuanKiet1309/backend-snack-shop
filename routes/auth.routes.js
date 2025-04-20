@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const tokenService = require('../services/tokenService');
 
 /**
  * @swagger
@@ -117,15 +118,11 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'Invalid email or password' });
         }
 
-        // Tạo JWT token
-        const token = jwt.sign(
-            { 
-                userId: user._id,
-                role: user.role
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: '24h' }
-        );
+        // Tạo JWT token với Redis
+        const token = await tokenService.generateToken({ 
+            userId: user._id,
+            role: user.role
+        });
 
         // Trả về thông tin user (không bao gồm password) và token
         res.json({
@@ -141,6 +138,31 @@ router.post('/login', async (req, res) => {
         });
 
     } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Đăng xuất
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Đăng xuất thành công
+ *       401:
+ *         description: Không có quyền truy cập
+ */
+router.post('/logout', auth, async (req, res) => {
+    try {
+        await tokenService.blacklistToken(req.token);
+        res.json({ message: 'Logged out successfully' });
+    } catch (error) {
+        console.error('Logout error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });

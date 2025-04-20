@@ -4,10 +4,10 @@ const bcrypt = require('bcryptjs');
 
 exports.register = async (req, res) => {
   try {
-    const { email, password, firstName, lastName, phoneNumber } = req.body;
+    const { email, password, firstName, lastName, phone } = req.body;
     
     // Validate required fields
-    if (!email || !password || !firstName || !lastName || !phoneNumber) {
+    if (!email || !password || !firstName || !lastName || !phone) {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
@@ -22,7 +22,7 @@ exports.register = async (req, res) => {
       password,
       firstName,
       lastName,
-      phone: phoneNumber
+      phone
     });
 
     await user.save();
@@ -41,7 +41,7 @@ exports.register = async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
-        phoneNumber: user.phone
+        phone: user.phone
       }
     });
   } catch (error) {
@@ -81,7 +81,7 @@ exports.login = async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
-        phoneNumber: user.phone
+        phone: user.phone
       }
     });
   } catch (error) {
@@ -104,7 +104,7 @@ exports.getCurrentUser = async (req, res) => {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
-      phoneNumber: user.phone
+      phone: user.phone
     });
   } catch (error) {
     console.error(error);
