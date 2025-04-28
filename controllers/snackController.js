@@ -67,7 +67,7 @@ exports.deleteSnack = async (req, res) => {
     const snack = await Snack.findById(req.params.id);
     if (!snack) return res.status(404).json({ message: 'Snack not found' });
     
-    await snack.remove();
+    await Snack.deleteOne({ _id: req.params.id });
     res.json({ message: 'Snack deleted' });
   } catch (error) {
     res.status(500).json({ message: error.message });

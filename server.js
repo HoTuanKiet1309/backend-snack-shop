@@ -3,7 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
-const specs = require('./swagger');
+const { specs, swaggerOptions } = require('./swagger');
 
 const app = express();
 
@@ -21,7 +21,7 @@ mongoose.connect(process.env.MONGODB_URI, {
 .catch(err => console.error('Could not connect to MongoDB:', err));
 
 // Swagger UI
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, swaggerOptions));
 
 // Test route
 app.get('/test', (req, res) => {
