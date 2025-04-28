@@ -12,6 +12,13 @@ const {
 
 /**
  * @swagger
+ * tags:
+ *   name: Carts
+ *   description: Quản lý giỏ hàng
+ */
+
+/**
+ * @swagger
  * components:
  *   schemas:
  *     CartItem:
@@ -46,15 +53,15 @@ const {
 
 /**
  * @swagger
- * /api/cart:
+ * /api/carts:
  *   get:
- *     summary: Lấy thông tin giỏ hàng
- *     tags: [Cart]
+ *     summary: Lấy giỏ hàng của người dùng
+ *     tags: [Carts]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Thông tin giỏ hàng
+ *         description: Thành công
  *         content:
  *           application/json:
  *             schema:
@@ -64,7 +71,7 @@ const {
  * 
  *   post:
  *     summary: Thêm sản phẩm vào giỏ hàng
- *     tags: [Cart]
+ *     tags: [Carts]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -72,18 +79,49 @@ const {
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/CartItem'
+ *             type: object
+ *             required:
+ *               - snackId
+ *               - quantity
+ *             properties:
+ *               snackId:
+ *                 type: string
+ *                 description: ID của sản phẩm
+ *               quantity:
+ *                 type: number
+ *                 description: Số lượng
  *     responses:
  *       200:
- *         description: Thêm thành công
+ *         description: Thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Cart'
  *       401:
  *         description: Chưa đăng nhập
  *       404:
  *         description: Không tìm thấy sản phẩm
  * 
+ *   delete:
+ *     summary: Xóa toàn bộ giỏ hàng
+ *     tags: [Carts]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ * 
+ * /api/carts/{snackId}:
  *   put:
  *     summary: Cập nhật số lượng sản phẩm
- *     tags: [Cart]
+ *     tags: [Carts]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -92,28 +130,28 @@ const {
  *         required: true
  *         schema:
  *           type: string
- *         description: ID của sản phẩm
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - quantity
  *             properties:
  *               quantity:
  *                 type: number
- *                 description: Số lượng mới
  *     responses:
  *       200:
- *         description: Cập nhật thành công
- *       401:
- *         description: Chưa đăng nhập
- *       404:
- *         description: Không tìm thấy sản phẩm
+ *         description: Thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Cart'
  * 
  *   delete:
  *     summary: Xóa sản phẩm khỏi giỏ hàng
- *     tags: [Cart]
+ *     tags: [Carts]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -122,37 +160,18 @@ const {
  *         required: true
  *         schema:
  *           type: string
- *         description: ID của sản phẩm
  *     responses:
  *       200:
- *         description: Xóa thành công
- *       401:
- *         description: Chưa đăng nhập
- *       404:
- *         description: Không tìm thấy sản phẩm
- */
-
-/**
- * @swagger
- * /api/cart/clear:
- *   delete:
- *     summary: Xóa toàn bộ giỏ hàng
- *     tags: [Cart]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Xóa thành công
- *       401:
- *         description: Chưa đăng nhập
- */
-
-/**
- * @swagger
- * /api/cart/apply-coupon:
+ *         description: Thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Cart'
+ * 
+ * /api/carts/apply-coupon:
  *   post:
  *     summary: Áp dụng mã giảm giá
- *     tags: [Cart]
+ *     tags: [Carts]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -161,25 +180,26 @@ const {
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - code
  *             properties:
  *               code:
  *                 type: string
- *                 description: Mã giảm giá
  *     responses:
  *       200:
- *         description: Áp dụng thành công
- *       401:
- *         description: Chưa đăng nhập
- *       404:
- *         description: Mã giảm giá không hợp lệ
+ *         description: Thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Cart'
  */
 
-// Cart routes
+// Routes
 router.get('/', auth, getCart);
 router.post('/', auth, addToCart);
 router.put('/:snackId', auth, updateCartItem);
 router.delete('/:snackId', auth, removeFromCart);
-router.delete('/clear', auth, clearCart);
+router.delete('/', auth, clearCart);
 router.post('/apply-coupon', auth, applyCoupon);
 
 module.exports = router; 
