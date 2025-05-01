@@ -2,7 +2,47 @@ const Snack = require('../models/Snack');
 
 exports.getAllSnacks = async (req, res) => {
   try {
-    const snacks = await Snack.find();
+    const { 
+      search,
+      category,
+      minPrice = 0,
+      maxPrice = 300000,
+      sort = 'createdAt'
+    } = req.query;
+
+    // Build filter object
+    let filter = {};
+    
+    // Add category filter if provided
+    if (category && category !== 'all') {
+      filter.categoryId = category;
+    }
+
+    // Add price range filter
+    filter.realPrice = {
+      $gte: Number(minPrice),
+      $lte: Number(maxPrice)
+    };
+
+    // Add search filter if provided
+    if (search) {
+      filter.snackName = { $regex: search, $options: 'i' };
+    }
+
+    // Build sort object
+    let sortObj = {};
+    switch (sort) {
+      case 'price-asc':
+        sortObj = { realPrice: 1 };
+        break;
+      case 'price-desc':
+        sortObj = { realPrice: -1 };
+        break;
+      default:
+        sortObj = { createdAt: -1 };
+    }
+
+    const snacks = await Snack.find(filter).sort(sortObj);
     res.json(snacks);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -11,9 +51,18 @@ exports.getAllSnacks = async (req, res) => {
 
 exports.getSnacksByCategory = async (req, res) => {
   try {
-    const snacks = await Snack.find({ categoryId: req.params.categoryId });
-    console.log('Finding snacks with categoryId:', req.params.categoryId);
+    const categoryId = req.params.categoryId;
+    console.log('Finding snacks with categoryId:', categoryId);
+    
+    // Validate categoryId
+    const validCategories = ['banh', 'keo', 'do_kho', 'mut', 'hat'];
+    if (!validCategories.includes(categoryId)) {
+      return res.status(400).json({ message: 'Invalid category' });
+    }
+    
+    const snacks = await Snack.find({ categoryId: categoryId });
     console.log('Found snacks:', snacks);
+    
     res.json(snacks);
   } catch (error) {
     console.error('Error in getSnacksByCategory:', error);

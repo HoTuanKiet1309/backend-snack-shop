@@ -3,6 +3,7 @@ const Cart = require('../models/Cart');
 const Snack = require('../models/Snack');
 const User = require('../models/User');
 const Address = require('../models/Address');
+const mongoose = require('mongoose');
 
 exports.createOrder = async (req, res) => {
   try {
@@ -22,6 +23,8 @@ exports.createOrder = async (req, res) => {
 
     // Get user's default address if not provided
     let shippingAddressId = addressId;
+    let shippingAddress;
+
     if (!shippingAddressId) {
       const defaultAddress = await Address.findOne({ 
         userId: req.user.userId,
@@ -34,15 +37,41 @@ exports.createOrder = async (req, res) => {
           return res.status(400).json({ message: 'No shipping address found. Please add an address first.' });
         }
         shippingAddressId = anyAddress._id;
+        shippingAddress = anyAddress;
       } else {
         shippingAddressId = defaultAddress._id;
+        shippingAddress = defaultAddress;
       }
+    } else {
+      // Validate provided address
+      shippingAddress = await Address.findOne({
+        _id: shippingAddressId,
+        userId: req.user.userId
+      });
+
+      if (!shippingAddress) {
+        return res.status(400).json({ message: 'Invalid shipping address' });
+      }
+    }
+
+    // Calculate shipping fee based on ward
+    let shippingFee = 30000; // Default shipping fee for far districts
+    const ward = shippingAddress.ward.toLowerCase();
+    
+    // Free shipping for wards in Thu Duc that include "Linh"
+    if (ward.includes('linh')) {
+      shippingFee = 0;
+    }
+    // Medium fee (20,000đ) for nearby wards
+    else if (ward.includes('hiep') || ward.includes('long') || ward.includes('phuoc') || ward.includes('phước')) {
+      shippingFee = 20000;
     }
 
     // Validate all items in cart
     const invalidItems = [];
     const updatedSnacks = [];
     let orderItems = [];
+    let subtotal = 0;
 
     for (const item of cart.items) {
       const snack = await Snack.findById(item.snackId._id);
@@ -76,6 +105,9 @@ exports.createOrder = async (req, res) => {
         continue;
       }
 
+      const itemSubtotal = item.price * item.quantity;
+      subtotal += itemSubtotal;
+
       // Add to order items with additional details
       orderItems.push({
         snackId: item.snackId._id,
@@ -83,7 +115,7 @@ exports.createOrder = async (req, res) => {
         price: item.price,
         originalPrice: snack.price,
         discount: snack.discount || 0,
-        subtotal: item.price * item.quantity
+        subtotal: itemSubtotal
       });
 
       // Add to update queue
@@ -104,20 +136,19 @@ exports.createOrder = async (req, res) => {
       });
     }
 
-    try {
-      // Update stock for all valid items
-      for (const { snack, quantity } of updatedSnacks) {
-        snack.stock -= quantity;
-        await snack.save();
-      }
+    // Calculate final total amount
+    const discount = cart.discount || 0;
+    const totalAmount = subtotal + shippingFee - discount;
 
+    try {
       // Create order with additional details
       const order = new Order({
         userId: req.user.userId,
         items: orderItems,
-        totalAmount: cart.totalPriceAfterDiscount || cart.totalPrice,
-        discount: cart.discount || 0,
-        originalAmount: cart.totalPrice,
+        subtotal,
+        totalAmount,
+        shippingFee,
+        discount,
         addressId: shippingAddressId,
         paymentMethod: paymentMethod || 'COD',
         orderStatus: 'pending',
@@ -131,6 +162,12 @@ exports.createOrder = async (req, res) => {
       });
 
       await order.save();
+
+      // Update stock for all valid items
+      for (const { snack, quantity } of updatedSnacks) {
+        snack.stock -= quantity;
+        await snack.save();
+      }
 
       // Clear cart
       cart.items = [];
