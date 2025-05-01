@@ -49,6 +49,82 @@ const options = {
           bearerFormat: 'JWT',
         },
       },
+      schemas: {
+        Order: {
+          type: 'object',
+          properties: {
+            _id: {
+              type: 'string',
+              description: 'Order ID'
+            },
+            userId: {
+              type: 'string',
+              description: 'User ID'
+            },
+            items: {
+              type: 'array',
+              items: {
+                $ref: '#/components/schemas/OrderItem'
+              }
+            },
+            totalAmount: {
+              type: 'number',
+              description: 'Total amount of the order'
+            },
+            orderStatus: {
+              type: 'string',
+              enum: ['pending', 'confirmed', 'processing', 'shipping', 'delivered', 'cancelled'],
+              description: 'Current status of the order'
+            },
+            addressId: {
+              type: 'string',
+              description: 'Delivery address ID'
+            },
+            paymentId: {
+              type: 'string',
+              description: 'Payment ID'
+            },
+            note: {
+              type: 'string',
+              description: 'Additional notes for the order'
+            },
+            orderDate: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Date and time when the order was placed'
+            }
+          }
+        },
+        OrderItem: {
+          type: 'object',
+          properties: {
+            snackId: {
+              type: 'string',
+              example: '507f1f77bcf86cd799439011'
+            },
+            quantity: {
+              type: 'number',
+              example: 2
+            },
+            price: {
+              type: 'number',
+              example: 9500
+            },
+            originalPrice: {
+              type: 'number',
+              example: 10000
+            },
+            discount: {
+              type: 'number',
+              example: 5
+            },
+            subtotal: {
+              type: 'number',
+              example: 19000
+            }
+          }
+        }
+      },
     },
     paths: {
       '/api/orders': {

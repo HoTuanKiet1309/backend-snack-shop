@@ -36,26 +36,30 @@ const {
  *     Address:
  *       type: object
  *       required:
- *         - street
- *         - city
- *         - state
- *         - zipCode
+ *         - fullName
+ *         - phone
+ *         - district
+ *         - ward
+ *         - specificAddress
  *       properties:
- *         street:
+ *         fullName:
  *           type: string
- *           description: Địa chỉ đường
- *         city:
+ *           description: Họ và tên người nhận
+ *         phone:
  *           type: string
- *           description: Thành phố
- *         state:
+ *           description: Số điện thoại người nhận
+ *         district:
  *           type: string
- *           description: Bang/Tỉnh
- *         zipCode:
+ *           description: Quận (ví dụ: Quận 1)
+ *         ward:
  *           type: string
- *           description: Mã bưu điện
+ *           description: Phường
+ *         specificAddress:
+ *           type: string
+ *           description: Địa chỉ cụ thể (số nhà, tên đường)
  *         isDefault:
  *           type: boolean
- *           description: Địa chỉ mặc định
+ *           description: Đặt làm địa chỉ mặc định
  */
 
 /**
@@ -157,6 +161,12 @@ const {
  *     responses:
  *       201:
  *         description: Thêm địa chỉ thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Address'
+ *       400:
+ *         description: Thiếu thông tin bắt buộc
  *       401:
  *         description: Chưa đăng nhập
  */
@@ -185,6 +195,10 @@ const {
  *     responses:
  *       200:
  *         description: Cập nhật thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Address'
  *       401:
  *         description: Chưa đăng nhập
  *       404:
@@ -205,6 +219,34 @@ const {
  *     responses:
  *       200:
  *         description: Xóa thành công
+ *       401:
+ *         description: Chưa đăng nhập
+ *       404:
+ *         description: Không tìm thấy địa chỉ
+ */
+
+/**
+ * @swagger
+ * /api/users/addresses/{id}/default:
+ *   put:
+ *     summary: Đặt địa chỉ làm mặc định
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID của địa chỉ
+ *     responses:
+ *       200:
+ *         description: Đặt làm mặc định thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Address'
  *       401:
  *         description: Chưa đăng nhập
  *       404:

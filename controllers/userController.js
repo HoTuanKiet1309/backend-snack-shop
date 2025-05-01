@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Address = require('../models/Address');
 const Snack = require('../models/Snack');
 const bcrypt = require('bcryptjs');
+const mongoose = require('mongoose');
 
 // Profile functions
 exports.getUserProfile = async (req, res) => {
@@ -59,14 +60,21 @@ exports.getUserAddresses = async (req, res) => {
 
 exports.addUserAddress = async (req, res) => {
   try {
-    const { street, city, state, zipCode, isDefault } = req.body;
+    const { fullName, phone, district, ward, specificAddress, isDefault } = req.body;
+
+    // Validate required fields
+    if (!fullName || !phone || !district || !ward || !specificAddress) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
     const address = new Address({
       userId: req.user.userId,
-      street,
-      city,
-      state,
-      zipCode,
-      isDefault
+      fullName,
+      phone,
+      district,
+      ward,
+      specificAddress,
+      isDefault: isDefault || false
     });
     
     if (isDefault) {
@@ -85,7 +93,7 @@ exports.addUserAddress = async (req, res) => {
 
 exports.updateUserAddress = async (req, res) => {
   try {
-    const { street, city, state, zipCode, isDefault } = req.body;
+    const { fullName, phone, district, ward, specificAddress, isDefault } = req.body;
     const address = await Address.findOne({
       _id: req.params.id,
       userId: req.user.userId
@@ -95,10 +103,12 @@ exports.updateUserAddress = async (req, res) => {
       return res.status(404).json({ message: 'Address not found' });
     }
     
-    if (street) address.street = street;
-    if (city) address.city = city;
-    if (state) address.state = state;
-    if (zipCode) address.zipCode = zipCode;
+    if (fullName) address.fullName = fullName;
+    if (phone) address.phone = phone;
+    if (district) address.district = district;
+    if (ward) address.ward = ward;
+    if (specificAddress) address.specificAddress = specificAddress;
+    
     if (isDefault !== undefined) {
       address.isDefault = isDefault;
       if (isDefault) {
@@ -173,5 +183,49 @@ exports.removeFromFavorites = async (req, res) => {
     res.json({ message: 'Removed from favorites successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+// Set address as default
+exports.setDefaultAddress = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const addressId = req.params.addressId;
+
+    // Start a session for transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      // Unset current default address
+      await Address.updateMany(
+        { userId: userId, isDefault: true },
+        { $set: { isDefault: false } },
+        { session }
+      );
+
+      // Set new default address
+      const address = await Address.findOneAndUpdate(
+        { _id: addressId, userId: userId },
+        { $set: { isDefault: true } },
+        { session, new: true }
+      );
+
+      if (!address) {
+        await session.abortTransaction();
+        return res.status(404).json({ message: 'Không tìm thấy địa chỉ' });
+      }
+
+      await session.commitTransaction();
+      res.json({ message: 'Đã cập nhật địa chỉ mặc định', address });
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
+    }
+  } catch (error) {
+    console.error('Error setting default address:', error);
+    res.status(500).json({ message: 'Không thể cập nhật địa chỉ mặc định' });
   }
 }; 

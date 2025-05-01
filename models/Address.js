@@ -6,19 +6,23 @@ const addressSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  street: {
+  fullName: {
     type: String,
     required: true
   },
-  city: {
+  phone: {
     type: String,
     required: true
   },
-  state: {
+  district: {
     type: String,
     required: true
   },
-  zipCode: {
+  ward: {
+    type: String,
+    required: true
+  },
+  specificAddress: {
     type: String,
     required: true
   },
