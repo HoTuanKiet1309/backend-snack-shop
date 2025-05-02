@@ -4,10 +4,11 @@ const Snack = require('../models/Snack');
 const User = require('../models/User');
 const Address = require('../models/Address');
 const mongoose = require('mongoose');
+const { sendOrderConfirmationEmail } = require('../config/emailConfig');
 
 exports.createOrder = async (req, res) => {
   try {
-    const { addressId, paymentMethod, note } = req.body;
+    const { addressId, paymentMethod, note, sendEmail } = req.body;
 
     // Get cart and check if empty
     const cart = await Cart.findOne({ userId: req.user.userId })
@@ -161,7 +162,7 @@ exports.createOrder = async (req, res) => {
         } : null
       });
 
-      await order.save();
+      const savedOrder = await order.save();
 
       // Update stock for all valid items
       for (const { snack, quantity } of updatedSnacks) {
@@ -178,9 +179,48 @@ exports.createOrder = async (req, res) => {
       await cart.save();
 
       // Get populated order for response
-      const populatedOrder = await Order.findById(order._id)
+      const populatedOrder = await Order.findById(savedOrder._id)
         .populate('items.snackId')
-        .populate('addressId');
+        .populate('addressId')
+        .lean(); // Convert to plain JavaScript object
+
+      // Get user email and send confirmation if requested
+      if (sendEmail) {
+        console.log('Attempting to send email confirmation...');
+        const user = await User.findById(req.user.userId);
+        console.log('User found:', user);
+        if (user && user.email) {
+          try {
+            console.log('Found user email:', user.email);
+            // Make sure all required fields are present
+            const orderForEmail = {
+              ...populatedOrder,
+              items: populatedOrder.items.map(item => ({
+                ...item,
+                price: item.price || 0,
+                quantity: item.quantity || 0
+              })),
+              subtotal: populatedOrder.subtotal || 0,
+              shippingFee: populatedOrder.shippingFee || 0,
+              discount: populatedOrder.discount || 0,
+              totalAmount: populatedOrder.totalAmount || 0
+            };
+            
+            const emailResult = await sendOrderConfirmationEmail(orderForEmail, user.email);
+            if (emailResult) {
+              console.log('Email sent successfully');
+            } else {
+              console.log('Email sending failed');
+            }
+          } catch (emailError) {
+            console.error('Error in email sending process:', emailError);
+          }
+        } else {
+          console.log('No user email found');
+        }
+      } else {
+        console.log('Email sending not requested');
+      }
 
       res.status(201).json({
         message: 'Order created successfully',
@@ -210,19 +250,19 @@ exports.getUserOrders = async (req, res) => {
 
 exports.getOrderById = async (req, res) => {
   try {
-    const order = await Order.findOne({
-      _id: req.params.id,
-      userId: req.user.userId
-    })
+    const order = await Order.findById(req.params.id)
       .populate('items.snackId')
-      .populate('addressId');
-    
+      .populate('addressId')
+      .populate('userId', 'email firstName lastName phoneNumber')
+      .lean();
+
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
-    
+
     res.json(order);
   } catch (error) {
+    console.error('Error fetching order:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -230,10 +270,7 @@ exports.getOrderById = async (req, res) => {
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const order = await Order.findOne({
-      _id: req.params.id,
-      userId: req.user.userId
-    });
+    const order = await Order.findById(req.params.id);
     
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
@@ -242,9 +279,24 @@ exports.updateOrderStatus = async (req, res) => {
     order.orderStatus = status;
     await order.save();
     
-    res.json(order);
+    // Return updated order with populated fields
+    const updatedOrder = await Order.findById(order._id)
+      .populate('items.snackId')
+      .populate('addressId')
+      .populate('userId', 'email firstName lastName phoneNumber')
+      .lean();
+    
+    res.json({ 
+      success: true, 
+      message: 'Order status updated successfully',
+      data: updatedOrder 
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error updating order status:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Error updating order status' 
+    });
   }
 };
 
@@ -324,5 +376,86 @@ exports.getOrderStatistics = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getAllOrders = async (req, res) => {
+  try {
+    const orders = await Order.find()
+      .populate({
+        path: 'userId',
+        select: 'username firstName lastName email'
+      })
+      .populate('items.snackId')
+      .populate('addressId')
+      .sort({ orderDate: -1 });
+    res.json(orders);
+  } catch (error) {
+    console.error('Error getting all orders:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getCompletedOrdersStatistics = async (req, res) => {
+  try {
+    // Get total revenue from completed orders
+    const revenueStats = await Order.aggregate([
+      { $match: { orderStatus: 'delivered' } },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: '$totalAmount' },
+          totalOrders: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Get top selling products from completed orders
+    const topProducts = await Order.aggregate([
+      { $match: { orderStatus: 'delivered' } },
+      { $unwind: '$items' },
+      {
+        $group: {
+          _id: '$items.snackId',
+          totalSold: { $sum: '$items.quantity' },
+          totalRevenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } }
+        }
+      },
+      {
+        $lookup: {
+          from: 'snacks',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'snackDetails'
+        }
+      },
+      { $unwind: '$snackDetails' },
+      {
+        $project: {
+          _id: 1,
+          name: '$snackDetails.snackName',
+          totalSold: 1,
+          totalRevenue: 1,
+          image: '$snackDetails.images'
+        }
+      },
+      { $sort: { totalSold: -1 } },
+      { $limit: 5 }
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        totalRevenue: revenueStats[0]?.totalRevenue || 0,
+        totalCompletedOrders: revenueStats[0]?.totalOrders || 0,
+        topProducts
+      }
+    });
+  } catch (error) {
+    console.error('Error getting completed orders statistics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting statistics'
+    });
   }
 }; 
