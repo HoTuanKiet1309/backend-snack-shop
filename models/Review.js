@@ -1,13 +1,14 @@
 const mongoose = require('mongoose');
+const { Schema } = mongoose;
 
-const reviewSchema = new mongoose.Schema({
+const reviewSchema = new Schema({
   userId: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
   snackId: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: Schema.Types.ObjectId,
     ref: 'Snack',
     required: true
   },
@@ -25,7 +26,13 @@ const reviewSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Ensure one user can only review a snack once
-reviewSchema.index({ userId: 1, snackId: 1 }, { unique: true });
+// Clear existing indexes and create a properly named index
+reviewSchema.index({ userId: 1, snackId: 1 }, { 
+  unique: true, 
+  background: true,
+  name: 'userId_snackId_unique'  // Explicitly name the index
+});
 
-module.exports = mongoose.model('Review', reviewSchema); 
+const Review = mongoose.model('Review', reviewSchema);
+
+module.exports = Review; 
