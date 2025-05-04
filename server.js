@@ -11,6 +11,7 @@ const app = express();
 const corsOptions = {
   origin: [
     'http://localhost:5173',     // Local development frontend
+    'https://admin-snack-shop.vercel.app',//Production admin
     'https://fe-snackhub.vercel.app'  // Production frontend
   ],
   credentials: true,
