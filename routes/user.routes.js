@@ -11,7 +11,9 @@ const {
   deleteUserAddress,
   getUserFavorites,
   addToFavorites,
-  removeFromFavorites
+  removeFromFavorites,
+  addSnackPoints,
+  getSnackPoints
 } = require('../controllers/userController');
 
 /**
@@ -312,6 +314,69 @@ const {
  *         description: Không tìm thấy sản phẩm
  */
 
+/**
+ * @swagger
+ * /api/users/snack-points:
+ *   get:
+ *     summary: Lấy số SnackPoints hiện có của người dùng
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Số SnackPoints của người dùng
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 snackPoints:
+ *                   type: number
+ *                   description: Số SnackPoints hiện có
+ *       401:
+ *         description: Chưa đăng nhập
+ *       404:
+ *         description: Không tìm thấy người dùng
+ * 
+ *   post:
+ *     summary: Nạp SnackPoints vào tài khoản
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - amount
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 description: Số SnackPoints muốn nạp
+ *     responses:
+ *       200:
+ *         description: Nạp SnackPoints thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   description: Thông báo kết quả
+ *                 currentPoints:
+ *                   type: number
+ *                   description: Số SnackPoints sau khi nạp
+ *       400:
+ *         description: Số SnackPoints không hợp lệ
+ *       401:
+ *         description: Chưa đăng nhập
+ *       404:
+ *         description: Không tìm thấy người dùng
+ */
+
 // Profile routes
 router.get('/profile', auth, getUserProfile);
 router.put('/profile', auth, updateUserProfile);
@@ -327,5 +392,9 @@ router.delete('/addresses/:id', auth, deleteUserAddress);
 router.get('/favorites', auth, getUserFavorites);
 router.post('/favorites/:snackId', auth, addToFavorites);
 router.delete('/favorites/:snackId', auth, removeFromFavorites);
+
+// SnackPoints routes
+router.get('/snack-points', auth, getSnackPoints);
+router.post('/snack-points', auth, addSnackPoints);
 
 module.exports = router;

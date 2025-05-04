@@ -57,13 +57,10 @@ const sendOrderConfirmationEmail = async (orderDetails, userEmail) => {
 
           <div style="margin-top: 20px; border-top: 2px solid #ddd; padding-top: 10px;">
             <p style="margin: 5px 0;"><strong>Tạm tính:</strong> ${orderDetails.items.reduce((total, item) => total + (item.price * item.quantity), 0).toLocaleString('vi-VN')}đ</p>
-            <p style="margin: 5px 0;"><strong>Phí vận chuyển:</strong> ${orderDetails.addressId?.ward?.toLowerCase().includes('linh') ? 'Miễn phí' :
-                     (orderDetails.addressId?.ward?.toLowerCase().includes('hiep') || 
-                      orderDetails.addressId?.ward?.toLowerCase().includes('long') || 
-                      orderDetails.addressId?.ward?.toLowerCase().includes('phuoc') || 
-                      orderDetails.addressId?.ward?.toLowerCase().includes('phước')) ? '20,000' :
-                     '30,000'}đ</p>
-            ${orderDetails.discount ? `<p style="margin: 5px 0; color: #28a745;"><strong>Giảm giá:</strong> -${(orderDetails.discount || 0).toLocaleString('vi-VN')}đ</p>` : ''}
+            <p style="margin: 5px 0;"><strong>Phí vận chuyển:</strong> ${orderDetails.shippingFee === 0 ? 
+              '<span style="color: #28a745;">Miễn phí</span>' : 
+              `${orderDetails.shippingFee.toLocaleString('vi-VN')}đ`}</p>
+            ${orderDetails.discount > 0 ? `<p style="margin: 5px 0; color: #28a745;"><strong>Giảm giá:</strong> -${(orderDetails.discount || 0).toLocaleString('vi-VN')}đ</p>` : ''}
             <p style="margin: 10px 0; font-size: 18px; color: #ff784e;"><strong>Tổng cộng:</strong> ${(orderDetails.totalAmount || 0).toLocaleString('vi-VN')}đ</p>
           </div>
         </div>

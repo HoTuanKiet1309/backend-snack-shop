@@ -8,7 +8,16 @@ const { specs, swaggerOptions } = require('./swagger');
 const app = express();
 
 // Middleware
-app.use(cors());
+const corsOptions = {
+  origin: [
+    'http://localhost:5173',     // Local development frontend
+    'https://fe-snackhub.vercel.app'  // Production frontend
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -43,6 +52,8 @@ const cartRoutes = require('./routes/cart.routes');
 const reviewRoutes = require('./routes/review.routes');
 const searchRoutes = require('./routes/search.routes');
 const adminRoutes = require('./routes/admin.routes');
+const couponRoutes = require('./routes/couponRoutes');
+const shippingRoutes = require('./routes/shippingRoutes');
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -54,6 +65,8 @@ app.use('/api/carts', cartRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/coupons', couponRoutes);
+app.use('/api/shipping', shippingRoutes);
 
 // 404 handler - phải đặt sau tất cả các routes khác
 app.use((req, res) => {

@@ -147,8 +147,12 @@ exports.deleteUserAddress = async (req, res) => {
 exports.getUserFavorites = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).populate('favorites');
-    res.json(user.favorites);
+    
+    // Đảm bảo trả về một mảng, ngay cả khi favorites là undefined
+    const favorites = user.favorites || [];
+    res.json(favorites);
   } catch (error) {
+    console.error("Error fetching favorites:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -161,7 +165,11 @@ exports.addToFavorites = async (req, res) => {
     }
     
     const user = await User.findById(req.user.userId);
-    if (user.favorites.includes(req.params.snackId)) {
+    if (!user.favorites) {
+      user.favorites = [];
+    }
+    
+    if (user.favorites.some(favId => favId && favId.toString() === req.params.snackId)) {
       return res.status(400).json({ message: 'Snack already in favorites' });
     }
     
@@ -169,6 +177,7 @@ exports.addToFavorites = async (req, res) => {
     await user.save();
     res.json({ message: 'Added to favorites successfully' });
   } catch (error) {
+    console.error("Error adding to favorites:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -176,12 +185,20 @@ exports.addToFavorites = async (req, res) => {
 exports.removeFromFavorites = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
+    
+    // Đảm bảo favorites là một mảng
+    if (!user.favorites) {
+      user.favorites = [];
+      return res.json({ message: 'Removed from favorites successfully' });
+    }
+    
     user.favorites = user.favorites.filter(
-      favorite => favorite.toString() !== req.params.snackId
+      favorite => favorite && favorite.toString() !== req.params.snackId
     );
     await user.save();
     res.json({ message: 'Removed from favorites successfully' });
   } catch (error) {
+    console.error("Error removing from favorites:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -227,5 +244,52 @@ exports.setDefaultAddress = async (req, res) => {
   } catch (error) {
     console.error('Error setting default address:', error);
     res.status(500).json({ message: 'Không thể cập nhật địa chỉ mặc định' });
+  }
+};
+
+// SnackPoints functions
+exports.addSnackPoints = async (req, res) => {
+  try {
+    const { amount } = req.body;
+    
+    // Kiểm tra số điểm nhập vào
+    const pointsToAdd = Number(amount);
+    if (isNaN(pointsToAdd) || pointsToAdd <= 0) {
+      return res.status(400).json({ 
+        message: 'Số SnackPoints không hợp lệ. Vui lòng nhập số dương.' 
+      });
+    }
+    
+    // Lấy thông tin người dùng
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+    
+    // Cập nhật số điểm
+    user.snackPoints += pointsToAdd;
+    await user.save();
+    
+    res.json({ 
+      message: `Nạp thành công ${pointsToAdd} SnackPoints!`,
+      currentPoints: user.snackPoints
+    });
+  } catch (error) {
+    console.error("Error adding SnackPoints:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getSnackPoints = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select('snackPoints');
+    if (!user) {
+      return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+    
+    res.json({ snackPoints: user.snackPoints || 0 });
+  } catch (error) {
+    console.error("Error getting SnackPoints:", error);
+    res.status(500).json({ message: error.message });
   }
 }; 

@@ -65,20 +65,75 @@ const auth = require('../middleware/auth');
  *           type: string
  *           enum: [PENDING, PROCESSING, SHIPPED, DELIVERED, CANCELLED]
  *           description: Trạng thái đơn hàng
+ *         items:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               snackId:
+ *                 type: string
+ *               quantity:
+ *                 type: number
+ *               price:
+ *                 type: number
+ *         totalAmount:
+ *           type: number
+ *         subtotal:
+ *           type: number
+ *         shippingFee:
+ *           type: number
+ *         discount:
+ *           type: number
+ *         orderStatus:
+ *           type: string
+ *           enum: [pending, confirmed, processing, shipping, delivered, cancelled]
+ *         addressId:
+ *           type: string
+ *         paymentMethod:
+ *           type: string
+ *           enum: [COD, SnackPoints, Bank]
+ *         snackPointsUsed:
+ *           type: number
+ *         note:
+ *           type: string
  */
 
 /**
  * @swagger
  * /api/orders:
  *   post:
- *     summary: Tạo đơn hàng mới từ giỏ hàng
+ *     summary: Tạo đơn hàng mới
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
- *     description: Creates a new order using items from the user's cart. No request body needed - all information will be taken from user's cart and default address.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - addressId
+ *             properties:
+ *               addressId:
+ *                 type: string
+ *                 description: ID của địa chỉ giao hàng
+ *               paymentMethod:
+ *                 type: string
+ *                 enum: [COD, Bank]
+ *                 description: Phương thức thanh toán
+ *               useSnackPoints:
+ *                 type: boolean
+ *                 description: Sử dụng SnackPoints để thanh toán
+ *               note:
+ *                 type: string
+ *                 description: Ghi chú cho đơn hàng
+ *               sendEmail:
+ *                 type: boolean
+ *                 description: Gửi email xác nhận đơn hàng
  *     responses:
  *       201:
- *         description: Tạo đơn hàng thành công
+ *         description: Đơn hàng đã được tạo
  *         content:
  *           application/json:
  *             schema:
@@ -86,74 +141,14 @@ const auth = require('../middleware/auth');
  *               properties:
  *                 message:
  *                   type: string
- *                   example: Order created successfully
  *                 order:
- *                   type: object
- *                   properties:
- *                     _id:
- *                       type: string
- *                       example: 507f1f77bcf86cd799439011
- *                     userId:
- *                       type: string
- *                       example: 507f1f77bcf86cd799439011
- *                     items:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           snackId:
- *                             type: string
- *                             example: 507f1f77bcf86cd799439011
- *                           quantity:
- *                             type: number
- *                             example: 2
- *                           price:
- *                             type: number
- *                             example: 9500
- *                           originalPrice:
- *                             type: number
- *                             example: 10000
- *                           discount:
- *                             type: number
- *                             example: 5
- *                           subtotal:
- *                             type: number
- *                             example: 19000
- *                     totalAmount:
- *                       type: number
- *                       example: 19000
- *                     discount:
- *                       type: number
- *                       example: 0
- *                     originalAmount:
- *                       type: number
- *                       example: 20000
- *                     addressId:
- *                       type: string
- *                       example: 507f1f77bcf86cd799439011
- *                     paymentMethod:
- *                       type: string
- *                       example: COD
- *                     orderStatus:
- *                       type: string
- *                       example: pending
- *                     orderDate:
- *                       type: string
- *                       format: date-time
+ *                   $ref: '#/components/schemas/Order'
  *       400:
- *         description: Giỏ hàng trống hoặc không có địa chỉ giao hàng
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Cart is empty
+ *         description: Lỗi khi tạo đơn hàng - giỏ hàng trống hoặc SnackPoints không đủ
  *       401:
  *         description: Chưa đăng nhập
- *       500:
- *         description: Lỗi server
+ *       404:
+ *         description: Không tìm thấy địa chỉ hoặc sản phẩm
  * 
  *   get:
  *     summary: Lấy danh sách đơn hàng

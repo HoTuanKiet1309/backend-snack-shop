@@ -2,7 +2,16 @@ const { wardShippingInfo } = require('../utils/shippingData');
 
 const calculateShippingFee = async (req, res) => {
   try {
-    const { ward } = req.query;
+    const { ward, totalAmount } = req.query;
+    
+    // Kiểm tra free ship cho đơn hàng trên 200k
+    if (totalAmount && parseInt(totalAmount) >= 200000) {
+      return res.json({
+        success: true,
+        fee: 0,
+        message: 'Miễn phí vận chuyển cho đơn hàng từ 200.000đ'
+      });
+    }
     
     if (!ward) {
       return res.status(400).json({ 
@@ -11,15 +20,27 @@ const calculateShippingFee = async (req, res) => {
       });
     }
 
+    console.log(`Received shipping fee request for ward: "${ward}"`);
+    
+    // Xử lý tên phường - loại bỏ tiền tố "Phường " hoặc "Quận " nếu có
+    const processedWard = ward
+      .replace(/^Phường\s+/i, '')
+      .replace(/^Quận\s+/i, '');
+    console.log(`Processing ward name: "${ward}" -> "${processedWard}"`);
+    
     // Find ward in shipping data
-    const wardInfo = wardShippingInfo[ward];
+    const wardInfo = wardShippingInfo[processedWard];
     if (!wardInfo) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Không tìm thấy thông tin phí vận chuyển cho phường này' 
+      console.log(`Ward "${processedWard}" not found in shipping data, using default fee`);
+      return res.json({ 
+        success: true,
+        fee: 30000,  // Default fee if ward not found
+        message: 'Sử dụng phí mặc định vì không tìm thấy phường'
       });
     }
 
+    console.log(`Found shipping fee for ward "${processedWard}": ${wardInfo.fee}`);
+    
     res.json({ 
       success: true,
       fee: wardInfo.fee 

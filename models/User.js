@@ -39,9 +39,17 @@ const userSchema = new mongoose.Schema({
     enum: ['active', 'blocked'],
     default: 'active'
   },
+  snackPoints: {
+    type: Number,
+    default: 0
+  },
   cartId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Cart'
+  },
+  favorites: {
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Snack' }],
+    default: []
   }
 }, {
   timestamps: true

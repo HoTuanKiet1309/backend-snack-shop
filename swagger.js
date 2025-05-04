@@ -39,6 +39,10 @@ const options = {
       {
         name: 'Orders',
         description: 'Quản lý đơn hàng'
+      },
+      {
+        name: 'Coupons',
+        description: 'Quản lý mã giảm giá'
       }
     ],
     components: {
@@ -121,6 +125,58 @@ const options = {
             subtotal: {
               type: 'number',
               example: 19000
+            }
+          }
+        },
+        Coupon: {
+          type: 'object',
+          properties: {
+            _id: {
+              type: 'string',
+              description: 'Coupon ID'
+            },
+            code: {
+              type: 'string',
+              description: 'Mã giảm giá'
+            },
+            discountType: {
+              type: 'string',
+              enum: ['percentage', 'fixed'],
+              description: 'Loại giảm giá (phần trăm hoặc số tiền cố định)'
+            },
+            discountValue: {
+              type: 'number',
+              description: 'Giá trị giảm giá'
+            },
+            minPurchase: {
+              type: 'number',
+              description: 'Giá trị đơn hàng tối thiểu'
+            },
+            startDate: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Ngày bắt đầu'
+            },
+            endDate: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Ngày kết thúc'
+            },
+            isActive: {
+              type: 'boolean',
+              description: 'Trạng thái kích hoạt'
+            },
+            usageLimit: {
+              type: 'number',
+              description: 'Giới hạn số lần sử dụng'
+            },
+            usedCount: {
+              type: 'number',
+              description: 'Số lần đã sử dụng'
+            },
+            description: {
+              type: 'string',
+              description: 'Mô tả mã giảm giá'
             }
           }
         }
