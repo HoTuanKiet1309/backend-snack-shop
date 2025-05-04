@@ -26,6 +26,34 @@ const orderSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  subtotal: {
+    type: Number
+  },
+  shippingFee: {
+    type: Number,
+    default: 0
+  },
+  discount: {
+    type: Number,
+    default: 0
+  },
+  couponApplied: {
+    couponId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Coupon'
+    },
+    code: String,
+    discount: Number
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['COD', 'SnackPoints', 'Bank'],
+    default: 'COD'
+  },
+  snackPointsUsed: {
+    type: Number,
+    default: 0
+  },
   orderStatus: {
     type: String,
     enum: ['pending', 'confirmed', 'processing', 'shipping', 'delivered', 'cancelled'],

@@ -5,10 +5,11 @@ const User = require('../models/User');
 const Address = require('../models/Address');
 const mongoose = require('mongoose');
 const { sendOrderConfirmationEmail } = require('../config/emailConfig');
+const { wardShippingInfo, SHIPPING_RULES } = require('../utils/shippingData');
 
 exports.createOrder = async (req, res) => {
   try {
-    const { addressId, paymentMethod, note, sendEmail } = req.body;
+    const { addressId, paymentMethod, note, sendEmail, useSnackPoints } = req.body;
 
     // Get cart and check if empty
     const cart = await Cart.findOne({ userId: req.user.userId })
@@ -56,16 +57,23 @@ exports.createOrder = async (req, res) => {
     }
 
     // Calculate shipping fee based on ward
-    let shippingFee = 30000; // Default shipping fee for far districts
-    const ward = shippingAddress.ward.toLowerCase();
+    let shippingFee = SHIPPING_RULES.HIGH; // Default shipping fee for far districts
     
-    // Free shipping for wards in Thu Duc that include "Linh"
-    if (ward.includes('linh')) {
-      shippingFee = 0;
-    }
-    // Medium fee (20,000đ) for nearby wards
-    else if (ward.includes('hiep') || ward.includes('long') || ward.includes('phuoc') || ward.includes('phước')) {
-      shippingFee = 20000;
+    // Xử lý tên phường - loại bỏ tiền tố "Phường " hoặc "Quận " nếu có
+    const ward = shippingAddress.ward;
+    const processedWard = ward
+      .replace(/^Phường\s+/i, '')
+      .replace(/^Quận\s+/i, '');
+    
+    console.log(`Processing ward name for shipping: "${ward}" -> "${processedWard}"`);
+    
+    // Tìm thông tin phí vận chuyển theo phường
+    const wardInfo = wardShippingInfo[processedWard];
+    if (wardInfo) {
+      shippingFee = wardInfo.fee;
+      console.log(`Found shipping fee for ward "${processedWard}": ${shippingFee}`);
+    } else {
+      console.log(`Ward "${processedWard}" not found in shipping data, using default fee: ${shippingFee}`);
     }
 
     // Validate all items in cart
@@ -139,7 +147,46 @@ exports.createOrder = async (req, res) => {
 
     // Calculate final total amount
     const discount = cart.discount || 0;
+    
+    // Miễn phí ship cho đơn hàng trên 200k
+    if (subtotal >= 200000) {
+      console.log(`Order qualifies for free shipping: subtotal=${subtotal}`);
+      shippingFee = 0;
+    }
+    
     const totalAmount = subtotal + shippingFee - discount;
+    
+    // Xử lý thanh toán bằng SnackPoints nếu được yêu cầu
+    let actualPaymentMethod = paymentMethod || 'COD';
+    let snackPointsUsed = 0;
+    
+    if (useSnackPoints) {
+      // Lấy thông tin user để kiểm tra số SnackPoints hiện có
+      const user = await User.findById(req.user.userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      
+      // Kiểm tra xem có đủ SnackPoints không (1 SnackPoint = 1 VND)
+      if (user.snackPoints < totalAmount) {
+        return res.status(400).json({ 
+          message: 'Không đủ SnackPoints để thanh toán',
+          currentPoints: user.snackPoints,
+          requiredPoints: totalAmount
+        });
+      }
+      
+      // Sử dụng SnackPoints để thanh toán
+      actualPaymentMethod = 'SnackPoints';
+      snackPointsUsed = totalAmount;
+      
+      // Trừ SnackPoints từ tài khoản người dùng
+      user.snackPoints -= snackPointsUsed;
+      await user.save();
+      
+      console.log(`Used ${snackPointsUsed} SnackPoints from user ${user._id}`);
+    }
 
     try {
       // Create order with additional details
@@ -151,7 +198,8 @@ exports.createOrder = async (req, res) => {
         shippingFee,
         discount,
         addressId: shippingAddressId,
-        paymentMethod: paymentMethod || 'COD',
+        paymentMethod: actualPaymentMethod,
+        snackPointsUsed,
         orderStatus: 'pending',
         orderDate: new Date(),
         note: note || '',
@@ -322,11 +370,27 @@ exports.cancelOrder = async (req, res) => {
       await snack.save();
     }
     
+    // Refund SnackPoints if payment was made with SnackPoints
+    if (order.paymentMethod === 'SnackPoints' && order.snackPointsUsed > 0) {
+      const user = await User.findById(req.user.userId);
+      if (user) {
+        user.snackPoints += order.snackPointsUsed;
+        await user.save();
+        console.log(`Refunded ${order.snackPointsUsed} SnackPoints to user ${user._id}`);
+      }
+    }
+    
     order.orderStatus = 'cancelled';
     await order.save();
     
-    res.json(order);
+    res.json({ 
+      order, 
+      message: order.paymentMethod === 'SnackPoints' 
+        ? `Đơn hàng đã được hủy và ${order.snackPointsUsed.toLocaleString('vi-VN')} SnackPoints đã được hoàn trả vào tài khoản của bạn.`
+        : 'Đơn hàng đã được hủy thành công.' 
+    });
   } catch (error) {
+    console.error('Error canceling order:', error);
     res.status(500).json({ message: error.message });
   }
 };

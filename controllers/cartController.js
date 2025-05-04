@@ -177,9 +177,10 @@ exports.applyCoupon = async (req, res) => {
     }
     
     const coupon = await Coupon.findOne({
-      code: couponCode,
+      code: couponCode.toUpperCase(),
       isActive: true,
-      expiryDate: { $gt: new Date() }
+      startDate: { $lte: new Date() },
+      endDate: { $gte: new Date() }
     });
     
     if (!coupon) {
@@ -187,7 +188,7 @@ exports.applyCoupon = async (req, res) => {
     }
     
     if (cart.totalPrice < coupon.minPurchase) {
-      return res.status(400).json({ message: 'Minimum purchase amount not met' });
+      return res.status(400).json({ message: `Minimum purchase amount not met. You need to spend at least ${coupon.minPurchase.toLocaleString('vi-VN')}đ to use this coupon.` });
     }
     
     const discountAmount = coupon.discountType === 'percentage'
@@ -196,10 +197,41 @@ exports.applyCoupon = async (req, res) => {
     
     cart.discount = discountAmount;
     cart.totalPriceAfterDiscount = cart.totalPrice - discountAmount;
+    cart.couponId = coupon._id;
     await cart.save();
     
-    res.json(cart);
+    // Populate cart items before returning
+    const populatedCart = await Cart.findById(cart._id)
+      .populate('items.snackId')
+      .populate('couponId');
+    
+    res.json(populatedCart);
   } catch (error) {
+    console.error('Error applying coupon:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.removeCoupon = async (req, res) => {
+  try {
+    const cart = await Cart.findOne({ userId: req.user.userId });
+    
+    if (!cart) {
+      return res.status(404).json({ message: 'Cart not found' });
+    }
+    
+    cart.discount = 0;
+    cart.totalPriceAfterDiscount = cart.totalPrice;
+    cart.couponId = null;
+    await cart.save();
+    
+    // Populate cart items before returning
+    const populatedCart = await Cart.findById(cart._id)
+      .populate('items.snackId');
+    
+    res.json(populatedCart);
+  } catch (error) {
+    console.error('Error removing coupon:', error);
     res.status(500).json({ message: error.message });
   }
 }; 

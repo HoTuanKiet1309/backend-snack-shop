@@ -7,7 +7,8 @@ const {
   updateCartItem, 
   removeFromCart, 
   clearCart,
-  applyCoupon
+  applyCoupon,
+  removeCoupon
 } = require('../controllers/cartController');
 
 /**
@@ -181,17 +182,38 @@ const {
  *           schema:
  *             type: object
  *             required:
- *               - code
+ *               - couponCode
  *             properties:
- *               code:
+ *               couponCode:
  *                 type: string
+ *                 example: "WELCOME10"
  *     responses:
  *       200:
- *         description: Thành công
+ *         description: Mã giảm giá đã được áp dụng thành công
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Cart'
+ *       400:
+ *         description: Đơn hàng không đủ điều kiện để áp dụng mã giảm giá
+ *       404:
+ *         description: Mã giảm giá không hợp lệ hoặc đã hết hạn
+ * 
+ * /api/carts/remove-coupon:
+ *   post:
+ *     summary: Xóa mã giảm giá đã áp dụng
+ *     tags: [Carts]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Mã giảm giá đã được xóa thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Cart'
+ *       404:
+ *         description: Không tìm thấy giỏ hàng
  */
 
 // Routes
@@ -201,5 +223,6 @@ router.put('/:snackId', auth, updateCartItem);
 router.delete('/:snackId', auth, removeFromCart);
 router.delete('/', auth, clearCart);
 router.post('/apply-coupon', auth, applyCoupon);
+router.post('/remove-coupon', auth, removeCoupon);
 
 module.exports = router; 
