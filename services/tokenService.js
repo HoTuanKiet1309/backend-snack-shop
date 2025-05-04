@@ -3,141 +3,87 @@ const jwt = require('jsonwebtoken');
 
 const TOKEN_EXPIRY = 24 * 60 * 60; // 24 hours in seconds
 
-// Tạo bộ nhớ tạm trong trường hợp Redis không khả dụng
-const localTokenCache = new Map();
-
-// Xóa token khỏi cache sau khi hết hạn để tránh rò rỉ bộ nhớ
-const cleanupExpiredTokens = () => {
-    const now = Math.floor(Date.now() / 1000);
-    localTokenCache.forEach((data, token) => {
-        if (data.exp < now) {
-            localTokenCache.delete(token);
-        }
-    });
-};
-
-// Chạy cleanup định kỳ
-setInterval(cleanupExpiredTokens, 3600000); // Mỗi giờ
-
 const tokenService = {
-    // Tạo và lưu token
+    // Tạo và lưu token vào Redis
     generateToken: async (payload) => {
         try {
             const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
             
-            // Lưu vào Redis
-            await redisClient.set(token, payload.userId.toString(), 'EX', TOKEN_EXPIRY);
+            console.log('Generating token for user:', payload.userId);
             
-            // Lưu vào cache cục bộ (dự phòng nếu Redis lỗi)
-            const decoded = jwt.decode(token);
-            localTokenCache.set(token, {
-                userId: payload.userId.toString(),
-                exp: decoded.exp
-            });
+            // Lưu token vào Redis với key là token và value là userId
+            await redisClient.setex(token, TOKEN_EXPIRY, payload.userId);
+            
+            console.log('Token saved to Redis');
+            
+            // Kiểm tra token đã lưu chưa
+            const savedUserId = await redisClient.get(token);
+            console.log('Saved user ID in Redis:', savedUserId);
             
             return token;
         } catch (error) {
-            const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
-            
-            // Chỉ lưu vào cache cục bộ nếu Redis lỗi
-            const decoded = jwt.decode(token);
-            localTokenCache.set(token, {
-                userId: payload.userId.toString(),
-                exp: decoded.exp
-            });
-            
-            return token;
+            console.error('Error generating token:', error);
+            throw error;
         }
     },
 
     // Xác thực token
     verifyToken: async (token) => {
         try {
-            // Luôn xác thực JWT trước
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            console.log('Verifying token:', token);
             
-            try {
-                // Thử kiểm tra trong Redis
-                const userId = await redisClient.get(token);
-                
-                if (!userId) {
-                    // Nếu không có trong Redis, kiểm tra cache cục bộ
-                    const cachedData = localTokenCache.get(token);
-                    if (cachedData && cachedData.userId === decoded.userId.toString()) {
-                        return decoded;
-                    }
-                }
-                
-                // Nếu có trong Redis, xác minh khớp với JWT
-                if (userId && userId === decoded.userId.toString()) {
-                    return decoded;
-                }
-                
-                // Nếu không khớp hoặc không tìm thấy, vẫn tin tưởng JWT
-                return decoded;
-            } catch (redisError) {
-                // Nếu Redis lỗi, sử dụng cache cục bộ
-                const cachedData = localTokenCache.get(token);
-                if (cachedData && cachedData.userId === decoded.userId.toString()) {
-                    return decoded;
-                }
-                
-                // Cuối cùng, tin tưởng JWT
-                return decoded;
+            // Kiểm tra token có trong Redis không
+            const userId = await redisClient.get(token);
+            console.log('User ID from Redis:', userId);
+            
+            if (!userId) {
+                console.log('Token not found in Redis');
+                throw new Error('Token not found in Redis');
             }
-        } catch (jwtError) {
-            throw jwtError;
+
+            // Verify JWT token
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            console.log('Decoded token:', decoded);
+            
+            // Kiểm tra userId từ Redis có khớp với userId trong token không
+            if (userId !== decoded.userId.toString()) {
+                console.log('Token mismatch. Redis userId:', userId, 'Token userId:', decoded.userId);
+                throw new Error('Token mismatch');
+            }
+
+            return decoded;
+        } catch (error) {
+            console.error('Token verification error:', error.message);
+            throw error;
         }
     },
 
     // Thêm token vào blacklist khi logout
     blacklistToken: async (token) => {
         try {
-            // Xóa khỏi cả Redis và cache cục bộ
-            await redisClient.del(token);
-            localTokenCache.delete(token);
+            console.log('Blacklisting token:', token);
             
-            // Thêm vào blacklist
-            try {
-                const decoded = jwt.decode(token);
-                if (decoded && decoded.exp) {
-                    const timeLeft = decoded.exp - Math.floor(Date.now() / 1000);
-                    
-                    if (timeLeft > 0) {
-                        // Lưu vào cả Redis và cache
-                        await redisClient.set(`bl_${token}`, '1', 'EX', timeLeft);
-                        
-                        // Lưu vào blacklist cục bộ
-                        localTokenCache.set(`bl_${token}`, {
-                            value: '1',
-                            exp: decoded.exp
-                        });
-                    }
-                }
-            } catch (error) {
-                // Bỏ qua lỗi khi blacklist - logout vẫn thành công
+            // Xóa token khỏi Redis
+            await redisClient.del(token);
+            
+            // Thêm vào blacklist với thời gian còn lại của token
+            const decoded = jwt.decode(token);
+            const timeLeft = decoded.exp - Math.floor(Date.now() / 1000);
+            
+            if (timeLeft > 0) {
+                await redisClient.setex(`bl_${token}`, timeLeft, '1');
+                console.log('Token blacklisted for', timeLeft, 'seconds');
             }
         } catch (error) {
-            // Đảm bảo cache cục bộ được xóa
-            localTokenCache.delete(token);
+            console.error('Error blacklisting token:', error);
         }
     },
 
     // Kiểm tra token có trong blacklist không
     isTokenBlacklisted: async (token) => {
-        try {
-            // Kiểm tra Redis trước
-            const blacklisted = await redisClient.get(`bl_${token}`);
-            if (blacklisted) return true;
-            
-            // Kiểm tra cache cục bộ
-            const cachedBlacklist = localTokenCache.get(`bl_${token}`);
-            return !!cachedBlacklist;
-        } catch (error) {
-            // Nếu Redis lỗi, kiểm tra cache cục bộ
-            const cachedBlacklist = localTokenCache.get(`bl_${token}`);
-            return !!cachedBlacklist;
-        }
+        const blacklisted = await redisClient.get(`bl_${token}`);
+        console.log('Token blacklist check:', token, 'Result:', !!blacklisted);
+        return !!blacklisted;
     }
 };
 
