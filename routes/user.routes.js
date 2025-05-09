@@ -21,70 +21,68 @@ const {
  * @swagger
  * components:
  *   schemas:
+ *     Address:
+ *       type: object
+ *       required:
+ *         - street
+ *         - ward
+ *         - district
+ *         - city
+ *       properties:
+ *         street:
+ *           type: string
+ *           description: Số nhà, tên đường
+ *         ward:
+ *           type: string
+ *           description: Phường/Xã
+ *         district:
+ *           type: string
+ *           description: Quận/Huyện
+ *         city:
+ *           type: string
+ *           description: Thành phố
+ *         isDefault:
+ *           type: boolean
+ *           description: Địa chỉ mặc định
  *     UserProfile:
  *       type: object
  *       properties:
  *         firstName:
  *           type: string
- *           description: Tên người dùng
+ *           description: Tên
  *         lastName:
  *           type: string
- *           description: Họ người dùng
+ *           description: Họ
  *         email:
  *           type: string
- *           description: Email người dùng
+ *           description: Email
  *         phone:
  *           type: string
  *           description: Số điện thoại
- *     Address:
- *       type: object
- *       required:
- *         - fullName
- *         - phone
- *         - district
- *         - ward
- *         - specificAddress
- *       properties:
- *         fullName:
- *           type: string
- *           description: Họ và tên người nhận
- *         phone:
- *           type: string
- *           description: Số điện thoại người nhận
- *         district:
- *           type: string
- *           description: Quận (ví dụ: Quận 1)
- *         ward:
- *           type: string
- *           description: Phường
- *         specificAddress:
- *           type: string
- *           description: Địa chỉ cụ thể (số nhà, tên đường)
- *         isDefault:
- *           type: boolean
- *           description: Đặt làm địa chỉ mặc định
+ *         snackPoints:
+ *           type: number
+ *           description: Số SnackPoints hiện có
  */
 
 /**
  * @swagger
  * /api/users/profile:
  *   get:
- *     summary: Lấy thông tin profile người dùng
+ *     summary: Lấy thông tin cá nhân
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Thông tin profile
+ *         description: Thông tin cá nhân
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/UserProfile'
  *       401:
  *         description: Chưa đăng nhập
- * 
  *   put:
- *     summary: Cập nhật thông tin profile
+ *     summary: Cập nhật thông tin cá nhân
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -93,7 +91,14 @@ const {
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/UserProfile'
+ *             type: object
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *               lastName:
+ *                 type: string
+ *               phone:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Cập nhật thành công
@@ -149,7 +154,8 @@ const {
  *               type: array
  *               items:
  *                 $ref: '#/components/schemas/Address'
- * 
+ *       401:
+ *         description: Chưa đăng nhập
  *   post:
  *     summary: Thêm địa chỉ mới
  *     tags: [Users]
@@ -164,12 +170,6 @@ const {
  *     responses:
  *       201:
  *         description: Thêm địa chỉ thành công
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Address'
- *       400:
- *         description: Thiếu thông tin bắt buộc
  *       401:
  *         description: Chưa đăng nhập
  */
