@@ -10,6 +10,7 @@ const app = express();
 // Middleware
 const corsOptions = {
   origin: [
+    'http://localhost:3001', //Local admin
     'http://localhost:3000', //Local admin
     'http://localhost:5173',     // Local development frontend
     'https://admin-snack-shop.vercel.app',//Production admin
