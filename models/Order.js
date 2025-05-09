@@ -47,7 +47,7 @@ const orderSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ['COD', 'SnackPoints', 'Bank'],
+    enum: ['COD', 'SnackPoints', 'Bank', 'MoMo'],
     default: 'COD'
   },
   snackPointsUsed: {
@@ -56,7 +56,7 @@ const orderSchema = new mongoose.Schema({
   },
   orderStatus: {
     type: String,
-    enum: ['pending', 'confirmed', 'processing', 'shipping', 'delivered', 'cancelled'],
+    enum: ['pending', 'confirmed', 'processing', 'shipping', 'delivered', 'completed', 'cancelled'],
     default: 'pending'
   },
   addressId: {

@@ -10,6 +10,7 @@ const app = express();
 // Middleware
 const corsOptions = {
   origin: [
+    'http://localhost:3000', //Local admin
     'http://localhost:5173',     // Local development frontend
     'https://admin-snack-shop.vercel.app',//Production admin
     'https://fe-snackhub.vercel.app'  // Production frontend
@@ -55,6 +56,7 @@ const searchRoutes = require('./routes/search.routes');
 const adminRoutes = require('./routes/admin.routes');
 const couponRoutes = require('./routes/couponRoutes');
 const shippingRoutes = require('./routes/shippingRoutes');
+const paymentRoutes = require('./routes/payment.routes');
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -68,6 +70,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/shipping', shippingRoutes);
+app.use('/api/payment', paymentRoutes);
 
 // 404 handler - phải đặt sau tất cả các routes khác
 app.use((req, res) => {

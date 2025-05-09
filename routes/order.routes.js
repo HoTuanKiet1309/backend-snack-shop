@@ -9,7 +9,8 @@ const {
   getOrderHistory,
   getOrderStatistics,
   getAllOrders,
-  getCompletedOrdersStatistics
+  getCompletedOrdersStatistics,
+  sendOrderNotificationEmail
 } = require('../controllers/orderController');
 const auth = require('../middleware/auth');
 
@@ -344,6 +345,43 @@ const auth = require('../middleware/auth');
  *         description: Lỗi server
  */
 
+/**
+ * @swagger
+ * /api/orders/{id}/send-email:
+ *   post:
+ *     summary: Gửi email thông báo cho đơn hàng
+ *     tags: [Orders]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID của đơn hàng
+ *     responses:
+ *       200:
+ *         description: Email thông báo đã được gửi thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Email thông báo đã được gửi thành công
+ *       401:
+ *         description: Chưa đăng nhập hoặc không có quyền admin
+ *       404:
+ *         description: Không tìm thấy đơn hàng
+ *       500:
+ *         description: Lỗi server
+ */
+
 // Order routes
 router.post('/', auth, createOrder);
 router.get('/', auth, getUserOrders);
@@ -354,5 +392,6 @@ router.get('/statistics/completed', auth, getCompletedOrdersStatistics);
 router.get('/:id', auth, getOrderById);
 router.put('/:id', auth, updateOrderStatus);
 router.delete('/:id', auth, cancelOrder);
+router.post('/:id/send-email', auth, sendOrderNotificationEmail);
 
 module.exports = router; 

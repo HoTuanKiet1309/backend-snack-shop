@@ -6,6 +6,8 @@ const Address = require('../models/Address');
 const mongoose = require('mongoose');
 const { sendOrderConfirmationEmail } = require('../config/emailConfig');
 const { wardShippingInfo, SHIPPING_RULES } = require('../utils/shippingData');
+const cacheService = require('../services/cacheService');
+const moment = require('moment');
 
 exports.createOrder = async (req, res) => {
   try {
@@ -159,6 +161,7 @@ exports.createOrder = async (req, res) => {
     // Xử lý thanh toán bằng SnackPoints nếu được yêu cầu
     let actualPaymentMethod = paymentMethod || 'COD';
     let snackPointsUsed = 0;
+    let finalAmount = totalAmount;
     
     if (useSnackPoints) {
       // Lấy thông tin user để kiểm tra số SnackPoints hiện có
@@ -168,24 +171,34 @@ exports.createOrder = async (req, res) => {
         return res.status(404).json({ message: 'User not found' });
       }
       
+      // Tính số tiền sau khi giảm 5%
+      finalAmount = Math.round(totalAmount * 0.95);
+      
       // Kiểm tra xem có đủ SnackPoints không (1 SnackPoint = 1 VND)
-      if (user.snackPoints < totalAmount) {
+      if (user.snackPoints < finalAmount) {
         return res.status(400).json({ 
           message: 'Không đủ SnackPoints để thanh toán',
           currentPoints: user.snackPoints,
-          requiredPoints: totalAmount
+          requiredPoints: finalAmount
         });
       }
       
       // Sử dụng SnackPoints để thanh toán
       actualPaymentMethod = 'SnackPoints';
-      snackPointsUsed = totalAmount;
+      snackPointsUsed = finalAmount;
       
       // Trừ SnackPoints từ tài khoản người dùng
       user.snackPoints -= snackPointsUsed;
       await user.save();
       
-      console.log(`Used ${snackPointsUsed} SnackPoints from user ${user._id}`);
+      console.log(`Used ${snackPointsUsed} SnackPoints from user ${user._id} (after 5% discount)`);
+    } else if (paymentMethod === 'MoMo') {
+      // Xử lý thanh toán MoMo (giả lập)
+      actualPaymentMethod = 'MoMo';
+      finalAmount = totalAmount;
+      console.log(`Processing MoMo payment for order amount: ${finalAmount}`);
+    } else {
+      finalAmount = totalAmount;
     }
 
     try {
@@ -194,9 +207,9 @@ exports.createOrder = async (req, res) => {
         userId: req.user.userId,
         items: orderItems,
         subtotal,
-        totalAmount,
+        totalAmount: finalAmount,
         shippingFee,
-        discount,
+        discount: discount + (useSnackPoints ? Math.round(totalAmount * 0.05) : 0),
         addressId: shippingAddressId,
         paymentMethod: actualPaymentMethod,
         snackPointsUsed,
@@ -225,6 +238,26 @@ exports.createOrder = async (req, res) => {
       cart.discount = 0;
       cart.couponId = null;
       await cart.save();
+
+      // Invalidate caches that could be affected by new order
+      console.log('Invalidating caches after new order creation');
+      
+      // Invalidate popular snacks cache
+      await cacheService.delete('snacks:popular');
+      
+      // Invalidate best sellers cache
+      await cacheService.delete('snacks:best-sellers');
+      
+      // Invalidate any specific snack caches for items in this order
+      for (const item of orderItems) {
+        await cacheService.delete(`snack:${item.snackId}`);
+      }
+      
+      // Invalidate all snacks lists since stock has changed
+      await cacheService.deleteByPattern('snacks:all:*');
+      await cacheService.deleteByPattern('search:*');
+      
+      console.log('Cache invalidation completed');
 
       // Get populated order for response
       const populatedOrder = await Order.findById(savedOrder._id)
@@ -324,6 +357,7 @@ exports.updateOrderStatus = async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
     
+    const previousStatus = order.orderStatus;
     order.orderStatus = status;
     await order.save();
     
@@ -333,6 +367,65 @@ exports.updateOrderStatus = async (req, res) => {
       .populate('addressId')
       .populate('userId', 'email firstName lastName phoneNumber')
       .lean();
+    
+    // Send email notification for any status change
+    if (previousStatus !== status) {
+      try {
+        console.log(`Status changed from ${previousStatus} to ${status}, sending email notification...`);
+        const user = await User.findById(order.userId);
+        
+        if (user && user.email) {
+          console.log('Found user email:', user.email);
+          
+          // Prepare shipping address for email
+          const shippingAddress = updatedOrder.addressId ? {
+            fullName: updatedOrder.addressId.fullName,
+            phone: updatedOrder.addressId.phoneNumber,
+            address: updatedOrder.addressId.address,
+            ward: updatedOrder.addressId.ward,
+            district: updatedOrder.addressId.district,
+            city: updatedOrder.addressId.city
+          } : null;
+          
+          // Prepare order details for email
+          const orderForEmail = {
+            ...updatedOrder,
+            shippingAddress,
+            items: updatedOrder.items.map(item => ({
+              ...item,
+              price: item.price || 0,
+              quantity: item.quantity || 0
+            })),
+            subtotal: updatedOrder.subtotal || 0,
+            shippingFee: updatedOrder.shippingFee || 0,
+            discount: updatedOrder.discount || 0,
+            totalAmount: updatedOrder.totalAmount || 0
+          };
+          
+          const { sendOrderCompletionEmail, sendOrderStatusUpdateEmail } = require('../config/emailConfig');
+          
+          let emailResult;
+          // Use completion template for delivered status
+          if (status === 'delivered') {
+            emailResult = await sendOrderCompletionEmail(orderForEmail, user.email);
+          } else {
+            // Use a general template for other status changes
+            emailResult = await sendOrderStatusUpdateEmail(orderForEmail, user.email, status, previousStatus);
+          }
+          
+          if (emailResult) {
+            console.log(`Order status update email sent successfully for status: ${status}`);
+          } else {
+            console.log(`Order status update email sending failed for status: ${status}`);
+          }
+        } else {
+          console.log('No user email found for email notification');
+        }
+      } catch (emailError) {
+        console.error('Error in email sending process:', emailError);
+        // Don't fail the order status update if email fails
+      }
+    }
     
     res.json({ 
       success: true, 
@@ -445,7 +538,41 @@ exports.getOrderStatistics = async (req, res) => {
 
 exports.getAllOrders = async (req, res) => {
   try {
-    const orders = await Order.find()
+    // Build the query based on request parameters
+    const query = {};
+    
+    // Add date filtering if provided
+    if (req.query.startDate && req.query.endDate) {
+      console.log('getAllOrders - Raw date inputs:', {
+        startDate: req.query.startDate,
+        endDate: req.query.endDate
+      });
+      
+      // Parse dates from ISO format
+      const startDate = new Date(req.query.startDate);
+      const endDate = new Date(req.query.endDate);
+      
+      console.log('getAllOrders - Parsed dates:', {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        startLocal: startDate.toLocaleString('vi-VN'),
+        endLocal: endDate.toLocaleString('vi-VN')
+      });
+      
+      query.orderDate = {
+        $gte: startDate,
+        $lte: endDate
+      };
+      console.log("getAllOrders - Date filter applied:", query.orderDate);
+    }
+    
+    // Add limit if provided
+    const options = {};
+    if (req.query.limit) {
+      options.limit = parseInt(req.query.limit);
+    }
+    
+    const orders = await Order.find(query, null, options)
       .populate({
         path: 'userId',
         select: 'username firstName lastName email'
@@ -453,6 +580,7 @@ exports.getAllOrders = async (req, res) => {
       .populate('items.snackId')
       .populate('addressId')
       .sort({ orderDate: -1 });
+    
     res.json(orders);
   } catch (error) {
     console.error('Error getting all orders:', error);
@@ -462,9 +590,39 @@ exports.getAllOrders = async (req, res) => {
 
 exports.getCompletedOrdersStatistics = async (req, res) => {
   try {
+    // Build the match query based on request parameters
+    const matchQuery = { orderStatus: 'delivered' };
+    
+    // Add date filtering if provided
+    if (req.query.startDate && req.query.endDate) {
+      console.log('Raw date inputs:', {
+        startDate: req.query.startDate,
+        endDate: req.query.endDate
+      });
+      
+      // Parse dates from ISO format and adjust to UTC+7
+      const startDate = moment(req.query.startDate).utcOffset(7, true).startOf('day');
+      const endDate = moment(req.query.endDate).utcOffset(7, true).endOf('day');
+      
+      console.log('Parsed dates:', {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        startLocal: startDate.format('YYYY-MM-DD HH:mm:ss'),
+        endLocal: endDate.format('YYYY-MM-DD HH:mm:ss'),
+        startUTC: startDate.utc().format('YYYY-MM-DD HH:mm:ss'),
+        endUTC: endDate.utc().format('YYYY-MM-DD HH:mm:ss')
+      });
+      
+      matchQuery.orderDate = {
+        $gte: startDate.toDate(),
+        $lte: endDate.toDate()
+      };
+      console.log("Stats date filter applied:", matchQuery.orderDate);
+    }
+    
     // Get total revenue from completed orders
     const revenueStats = await Order.aggregate([
-      { $match: { orderStatus: 'delivered' } },
+      { $match: matchQuery },
       {
         $group: {
           _id: null,
@@ -476,7 +634,7 @@ exports.getCompletedOrdersStatistics = async (req, res) => {
 
     // Get top selling products from completed orders
     const topProducts = await Order.aggregate([
-      { $match: { orderStatus: 'delivered' } },
+      { $match: matchQuery },
       { $unwind: '$items' },
       {
         $group: {
@@ -507,6 +665,9 @@ exports.getCompletedOrdersStatistics = async (req, res) => {
       { $limit: 5 }
     ]);
 
+    console.log('Revenue stats:', revenueStats);
+    console.log('Top products:', topProducts);
+
     res.json({
       success: true,
       data: {
@@ -520,6 +681,89 @@ exports.getCompletedOrdersStatistics = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error getting statistics'
+    });
+  }
+};
+
+exports.sendOrderNotificationEmail = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    
+    if (!order) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Không tìm thấy đơn hàng' 
+      });
+    }
+    
+    // Get populated order data for the email
+    const populatedOrder = await Order.findById(order._id)
+      .populate('items.snackId')
+      .populate('addressId')
+      .populate('userId', 'email firstName lastName phoneNumber')
+      .lean();
+    
+    // Get the user email
+    const user = await User.findById(order.userId);
+    
+    if (!user || !user.email) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Không tìm thấy email người dùng' 
+      });
+    }
+    
+    // Prepare shipping address for email
+    const shippingAddress = populatedOrder.addressId ? {
+      fullName: populatedOrder.addressId.fullName,
+      phone: populatedOrder.addressId.phoneNumber,
+      address: populatedOrder.addressId.address,
+      ward: populatedOrder.addressId.ward,
+      district: populatedOrder.addressId.district,
+      city: populatedOrder.addressId.city
+    } : null;
+    
+    // Prepare order details for email
+    const orderForEmail = {
+      ...populatedOrder,
+      shippingAddress,
+      items: populatedOrder.items.map(item => ({
+        ...item,
+        price: item.price || 0,
+        quantity: item.quantity || 0
+      })),
+      subtotal: populatedOrder.subtotal || 0,
+      shippingFee: populatedOrder.shippingFee || 0,
+      discount: populatedOrder.discount || 0,
+      totalAmount: populatedOrder.totalAmount || 0
+    };
+    
+    // Determine which email template to use based on order status
+    const { sendOrderCompletionEmail, sendOrderStatusUpdateEmail } = require('../config/emailConfig');
+    
+    let emailResult;
+    const status = order.orderStatus;
+    
+    if (status === 'delivered') {
+      emailResult = await sendOrderCompletionEmail(orderForEmail, user.email);
+    } else {
+      // For other statuses, use the general template
+      emailResult = await sendOrderStatusUpdateEmail(orderForEmail, user.email, status, status);  // Pass the same status twice as we're not changing it
+    }
+    
+    if (emailResult) {
+      res.json({ 
+        success: true, 
+        message: `Email thông báo đã được gửi đến ${user.email}` 
+      });
+    } else {
+      throw new Error('Không thể gửi email');
+    }
+  } catch (error) {
+    console.error('Error sending order notification email:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Không thể gửi email thông báo' 
     });
   }
 }; 
