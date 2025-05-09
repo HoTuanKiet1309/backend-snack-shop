@@ -60,9 +60,10 @@ const sendOrderConfirmationEmail = async (orderDetails, userEmail) => {
             <p style="margin: 5px 0;"><strong>Phí vận chuyển:</strong> ${orderDetails.shippingFee === 0 ? 
               '<span style="color: #28a745;">Miễn phí</span>' : 
               `${orderDetails.shippingFee.toLocaleString('vi-VN')}đ`}</p>
-            ${orderDetails.discount > 0 ? `<p style="margin: 5px 0; color: #28a745;"><strong>Giảm giá:</strong> -${(orderDetails.discount || 0).toLocaleString('vi-VN')}đ</p>` : ''}
-            ${orderDetails.paymentMethod === 'SnackPoints' ? `<p style="margin: 5px 0; color: #28a745;"><strong>Giảm thêm (5%):</strong> -${Math.round(orderDetails.totalAmount * 0.05).toLocaleString('vi-VN')}đ</p>` : ''}
+            ${orderDetails.discount > 0 ? `<p style="margin: 5px 0; color: #28a745;"><strong>Giảm giá từ mã:</strong> -${(orderDetails.discount || 0).toLocaleString('vi-VN')}đ</p>` : ''}
+            ${orderDetails.paymentMethod === 'SnackPoints' ? `<p style="margin: 5px 0; color: #28a745;"><strong>Giảm thêm (5%):</strong> -${Math.round((orderDetails.items.reduce((total, item) => total + (item.price * item.quantity), 0) + orderDetails.shippingFee - (orderDetails.discount || 0)) * 0.05).toLocaleString('vi-VN')}đ</p>` : ''}
             <p style="margin: 10px 0; font-size: 18px; color: #ff784e;"><strong>Tổng cộng:</strong> ${(orderDetails.totalAmount || 0).toLocaleString('vi-VN')}đ</p>
+            ${orderDetails.paymentMethod === 'SnackPoints' ? `<p style="margin: 5px 0; color: #28a745;"><strong>Thanh toán bằng:</strong> ${Math.round(orderDetails.totalAmount).toLocaleString('vi-VN')} SnackPoints</p>` : ''}
           </div>
         </div>
 
@@ -186,26 +187,31 @@ const sendDeliveryConfirmationEmail = async (orderDetails, userEmail) => {
             <tfoot>
               <tr>
                 <td colspan="3" style="padding: 10px; text-align: right; border-top: 2px solid #eee;"><strong>Tạm tính:</strong></td>
-                <td style="padding: 10px; text-align: right; border-top: 2px solid #eee;">${subtotal}</td>
+                <td style="padding: 10px; text-align: right; border-top: 2px solid #eee;">${orderDetails.items.reduce((total, item) => total + (item.price * item.quantity), 0).toLocaleString('vi-VN')}đ</td>
               </tr>
               <tr>
                 <td colspan="3" style="padding: 10px; text-align: right;"><strong>Phí vận chuyển:</strong></td>
-                <td style="padding: 10px; text-align: right;">${shipping}</td>
+                <td style="padding: 10px; text-align: right;">${orderDetails.shippingFee === 0 ? '<span style="color: #28a745;">Miễn phí</span>' : `${orderDetails.shippingFee.toLocaleString('vi-VN')}đ`}</td>
               </tr>
+              ${orderDetails.discount > 0 ? `
               <tr>
-                <td colspan="3" style="padding: 10px; text-align: right;"><strong>Giảm giá:</strong></td>
-                <td style="padding: 10px; text-align: right;">${discount}</td>
-              </tr>
+                <td colspan="3" style="padding: 10px; text-align: right;"><strong>Giảm giá từ mã:</strong></td>
+                <td style="padding: 10px; text-align: right; color: #28a745;">-${orderDetails.discount.toLocaleString('vi-VN')}đ</td>
+              </tr>` : ''}
               ${orderDetails.paymentMethod === 'SnackPoints' ? `
               <tr>
                 <td colspan="3" style="padding: 10px; text-align: right;"><strong>Giảm thêm (5%):</strong></td>
-                <td style="padding: 10px; text-align: right; color: #28a745;">-${Math.round(orderDetails.totalAmount * 0.05).toLocaleString('vi-VN')}đ</td>
-              </tr>
-              ` : ''}
+                <td style="padding: 10px; text-align: right; color: #28a745;">-${Math.round((orderDetails.items.reduce((total, item) => total + (item.price * item.quantity), 0) + orderDetails.shippingFee - (orderDetails.discount || 0)) * 0.05).toLocaleString('vi-VN')}đ</td>
+              </tr>` : ''}
               <tr>
                 <td colspan="3" style="padding: 10px; text-align: right; border-top: 2px solid #eee;"><strong>Tổng cộng:</strong></td>
-                <td style="padding: 10px; text-align: right; border-top: 2px solid #eee; font-weight: bold; font-size: 18px;">${total}</td>
+                <td style="padding: 10px; text-align: right; border-top: 2px solid #eee; font-weight: bold; font-size: 18px;">${orderDetails.totalAmount.toLocaleString('vi-VN')}đ</td>
               </tr>
+              ${orderDetails.paymentMethod === 'SnackPoints' ? `
+              <tr>
+                <td colspan="3" style="padding: 10px; text-align: right;"><strong>Thanh toán bằng:</strong></td>
+                <td style="padding: 10px; text-align: right; color: #28a745;">${Math.round(orderDetails.totalAmount).toLocaleString('vi-VN')} SnackPoints</td>
+              </tr>` : ''}
             </tfoot>
           </table>
         </div>
@@ -512,26 +518,31 @@ const sendOrderStatusUpdateEmail = async (orderDetails, userEmail, newStatus, pr
             <tfoot>
               <tr>
                 <td colspan="3" style="padding: 10px; text-align: right; border-top: 2px solid #eee;"><strong>Tạm tính:</strong></td>
-                <td style="padding: 10px; text-align: right; border-top: 2px solid #eee;">${subtotal}</td>
+                <td style="padding: 10px; text-align: right; border-top: 2px solid #eee;">${orderDetails.items.reduce((total, item) => total + (item.price * item.quantity), 0).toLocaleString('vi-VN')}đ</td>
               </tr>
               <tr>
                 <td colspan="3" style="padding: 10px; text-align: right;"><strong>Phí vận chuyển:</strong></td>
-                <td style="padding: 10px; text-align: right;">${shipping}</td>
+                <td style="padding: 10px; text-align: right;">${orderDetails.shippingFee === 0 ? '<span style="color: #28a745;">Miễn phí</span>' : `${orderDetails.shippingFee.toLocaleString('vi-VN')}đ`}</td>
               </tr>
+              ${orderDetails.discount > 0 ? `
               <tr>
-                <td colspan="3" style="padding: 10px; text-align: right;"><strong>Giảm giá:</strong></td>
-                <td style="padding: 10px; text-align: right;">${discount}</td>
-              </tr>
+                <td colspan="3" style="padding: 10px; text-align: right;"><strong>Giảm giá từ mã:</strong></td>
+                <td style="padding: 10px; text-align: right; color: #28a745;">-${orderDetails.discount.toLocaleString('vi-VN')}đ</td>
+              </tr>` : ''}
               ${orderDetails.paymentMethod === 'SnackPoints' ? `
               <tr>
                 <td colspan="3" style="padding: 10px; text-align: right;"><strong>Giảm thêm (5%):</strong></td>
-                <td style="padding: 10px; text-align: right; color: #28a745;">-${Math.round(orderDetails.totalAmount * 0.05).toLocaleString('vi-VN')}đ</td>
-              </tr>
-              ` : ''}
+                <td style="padding: 10px; text-align: right; color: #28a745;">-${Math.round((orderDetails.items.reduce((total, item) => total + (item.price * item.quantity), 0) + orderDetails.shippingFee - (orderDetails.discount || 0)) * 0.05).toLocaleString('vi-VN')}đ</td>
+              </tr>` : ''}
               <tr>
                 <td colspan="3" style="padding: 10px; text-align: right; border-top: 2px solid #eee;"><strong>Tổng cộng:</strong></td>
-                <td style="padding: 10px; text-align: right; border-top: 2px solid #eee; font-weight: bold; font-size: 18px;">${total}</td>
+                <td style="padding: 10px; text-align: right; border-top: 2px solid #eee; font-weight: bold; font-size: 18px;">${orderDetails.totalAmount.toLocaleString('vi-VN')}đ</td>
               </tr>
+              ${orderDetails.paymentMethod === 'SnackPoints' ? `
+              <tr>
+                <td colspan="3" style="padding: 10px; text-align: right;"><strong>Thanh toán bằng:</strong></td>
+                <td style="padding: 10px; text-align: right; color: #28a745;">${Math.round(orderDetails.totalAmount).toLocaleString('vi-VN')} SnackPoints</td>
+              </tr>` : ''}
             </tfoot>
           </table>
         </div>
