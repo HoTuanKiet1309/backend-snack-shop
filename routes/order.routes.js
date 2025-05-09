@@ -38,65 +38,52 @@ const auth = require('../middleware/auth');
  *       type: object
  *       required:
  *         - items
- *         - total
- *         - shippingAddress
+ *         - totalAmount
+ *         - addressId
  *         - paymentMethod
  *       properties:
  *         items:
  *           type: array
  *           items:
  *             $ref: '#/components/schemas/OrderItem'
- *         total:
- *           type: number
- *           description: Tổng tiền
- *         discount:
- *           type: number
- *           description: Giảm giá
- *         finalTotal:
- *           type: number
- *           description: Tổng tiền sau giảm giá
- *         shippingAddress:
- *           type: string
- *           description: Địa chỉ giao hàng
- *         paymentMethod:
- *           type: string
- *           enum: [COD, PAYPAL]
- *           description: Phương thức thanh toán
- *         status:
- *           type: string
- *           enum: [PENDING, PROCESSING, SHIPPED, DELIVERED, CANCELLED]
- *           description: Trạng thái đơn hàng
- *         items:
- *           type: array
- *           items:
- *             type: object
- *             properties:
- *               snackId:
- *                 type: string
- *               quantity:
- *                 type: number
- *               price:
- *                 type: number
  *         totalAmount:
  *           type: number
+ *           description: Tổng tiền cuối cùng
  *         subtotal:
  *           type: number
+ *           description: Tổng tiền trước khi áp dụng giảm giá và phí ship
  *         shippingFee:
  *           type: number
+ *           description: Phí vận chuyển
  *         discount:
  *           type: number
- *         orderStatus:
- *           type: string
- *           enum: [pending, confirmed, processing, shipping, delivered, cancelled]
- *         addressId:
- *           type: string
+ *           description: Tổng giảm giá (bao gồm mã giảm giá và SnackPoints)
+ *         couponApplied:
+ *           type: object
+ *           properties:
+ *             couponId:
+ *               type: string
+ *             code:
+ *               type: string
+ *             discount:
+ *               type: number
  *         paymentMethod:
  *           type: string
  *           enum: [COD, SnackPoints, Bank]
+ *           description: Phương thức thanh toán
  *         snackPointsUsed:
  *           type: number
+ *           description: Số SnackPoints sử dụng
+ *         orderStatus:
+ *           type: string
+ *           enum: [pending, confirmed, processing, shipping, delivered, completed, cancelled]
+ *           description: Trạng thái đơn hàng
+ *         addressId:
+ *           type: string
+ *           description: ID của địa chỉ giao hàng
  *         note:
  *           type: string
+ *           description: Ghi chú cho đơn hàng
  */
 
 /**
