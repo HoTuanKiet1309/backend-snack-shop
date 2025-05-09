@@ -292,4 +292,92 @@ exports.getSnackPoints = async (req, res) => {
     console.error("Error getting SnackPoints:", error);
     res.status(500).json({ message: error.message });
   }
+};
+
+exports.getSnackPointsBalance = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select('snackPoints');
+    if (!user) {
+      return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+    
+    res.json({ snackPoints: user.snackPoints || 0 });
+  } catch (error) {
+    console.error('Error getting snack points balance:', error);
+    res.status(500).json({ message: 'Không thể lấy số dư điểm' });
+  }
+};
+
+exports.loadSnackPoints = async (req, res) => {
+  try {
+    const { amount, paymentMethod, transactionId } = req.body;
+    
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: 'Số điểm nạp không hợp lệ' });
+    }
+    
+    // Kiểm tra nếu phương thức thanh toán là PayPal thì trả về thông báo sử dụng API PayPal
+    if (paymentMethod === 'paypal') {
+      return res.status(200).json({ 
+        redirectToPayPal: true,
+        message: 'Vui lòng sử dụng API PayPal để thanh toán',
+        paypalEndpoint: '/api/payment/paypal/create'
+      });
+    }
+    
+    if (!paymentMethod) {
+      return res.status(400).json({ message: 'Phương thức thanh toán là bắt buộc' });
+    }
+    
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+    
+    // Khởi tạo snackPoints nếu chưa có
+    if (!user.snackPoints) {
+      user.snackPoints = 0;
+    }
+    
+    // Khởi tạo pointsHistory nếu chưa có
+    if (!user.pointsHistory) {
+      user.pointsHistory = [];
+    }
+    
+    // Thêm điểm vào tài khoản
+    user.snackPoints += amount;
+    
+    // Lưu lịch sử nạp điểm
+    user.pointsHistory.push({
+      amount: amount,
+      type: 'load',
+      paymentMethod: paymentMethod,
+      transactionId: transactionId || null,
+      date: new Date()
+    });
+    
+    await user.save();
+    
+    res.json({ 
+      message: 'Nạp điểm thành công',
+      currentBalance: user.snackPoints
+    });
+  } catch (error) {
+    console.error('Error loading snack points:', error);
+    res.status(500).json({ message: 'Không thể nạp điểm' });
+  }
+};
+
+exports.getPointsHistory = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select('pointsHistory');
+    if (!user) {
+      return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+    }
+    
+    res.json({ pointsHistory: user.pointsHistory || [] });
+  } catch (error) {
+    console.error('Error getting points history:', error);
+    res.status(500).json({ message: 'Không thể lấy lịch sử điểm' });
+  }
 }; 

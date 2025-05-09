@@ -12,8 +12,9 @@ const {
   getUserFavorites,
   addToFavorites,
   removeFromFavorites,
-  addSnackPoints,
-  getSnackPoints
+  getSnackPointsBalance,
+  loadSnackPoints,
+  getPointsHistory
 } = require('../controllers/userController');
 
 /**
@@ -351,10 +352,18 @@ const {
  *             type: object
  *             required:
  *               - amount
+ *               - paymentMethod
  *             properties:
  *               amount:
  *                 type: number
  *                 description: Số SnackPoints muốn nạp
+ *               paymentMethod:
+ *                 type: string
+ *                 enum: [banking, momo, zalopay, visa, mastercard]
+ *                 description: Phương thức thanh toán
+ *               transactionId:
+ *                 type: string
+ *                 description: Mã giao dịch (nếu có)
  *     responses:
  *       200:
  *         description: Nạp SnackPoints thành công
@@ -366,11 +375,61 @@ const {
  *                 message:
  *                   type: string
  *                   description: Thông báo kết quả
- *                 currentPoints:
+ *                 currentBalance:
  *                   type: number
  *                   description: Số SnackPoints sau khi nạp
  *       400:
- *         description: Số SnackPoints không hợp lệ
+ *         description: Số SnackPoints không hợp lệ hoặc thiếu thông tin
+ *       401:
+ *         description: Chưa đăng nhập
+ *       404:
+ *         description: Không tìm thấy người dùng
+ */
+
+/**
+ * @swagger
+ * /api/users/snack-points/history:
+ *   get:
+ *     summary: Lấy lịch sử giao dịch SnackPoints
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lịch sử giao dịch SnackPoints
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 pointsHistory:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       amount:
+ *                         type: number
+ *                         description: Số SnackPoints giao dịch
+ *                       type:
+ *                         type: string
+ *                         enum: [load, use, refund, bonus]
+ *                         description: Loại giao dịch
+ *                       date:
+ *                         type: string
+ *                         format: date-time
+ *                         description: Thời gian giao dịch
+ *                       paymentMethod:
+ *                         type: string
+ *                         description: Phương thức thanh toán
+ *                       transactionId:
+ *                         type: string
+ *                         description: Mã giao dịch (nếu có)
+ *                       orderId:
+ *                         type: string
+ *                         description: Mã đơn hàng (nếu có)
+ *                       note:
+ *                         type: string
+ *                         description: Ghi chú
  *       401:
  *         description: Chưa đăng nhập
  *       404:
@@ -394,7 +453,8 @@ router.post('/favorites/:snackId', auth, addToFavorites);
 router.delete('/favorites/:snackId', auth, removeFromFavorites);
 
 // SnackPoints routes
-router.get('/snack-points', auth, getSnackPoints);
-router.post('/snack-points', auth, addSnackPoints);
+router.get('/snack-points', auth, getSnackPointsBalance);
+router.post('/snack-points', auth, loadSnackPoints);
+router.get('/snack-points/history', auth, getPointsHistory);
 
 module.exports = router;
